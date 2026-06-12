@@ -14,5 +14,7 @@ def test_engage_then_status_then_disengage(tmp_path, capsys):
     assert run_command("status", typed=None, **kw) == 0
     assert "AUTONOMOUS" in capsys.readouterr().out
     assert run_command("engage", typed="wrong", **kw) == 1
+    capsys.readouterr()  # drain prior output
     assert run_command("disengage", typed="STOP", **kw) == 0
-    assert "READ" in capsys.readouterr().out or run_command("status", typed=None, **kw) == 0
+    assert run_command("status", typed=None, **kw) == 0
+    assert "READ" in capsys.readouterr().out
