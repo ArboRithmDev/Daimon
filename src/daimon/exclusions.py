@@ -55,6 +55,16 @@ class ExclusionFilter:
             return True
         return False
 
+    # -- point-in-region check --------------------------------------------
+    def is_point_excluded(self, x, y) -> bool:
+        """True if (x, y) falls inside any configured exclusion rectangle."""
+        if x is None or y is None:
+            return False
+        for r in self._config.regions:
+            if r.x <= x <= r.x + r.width and r.y <= y <= r.y + r.height:
+                return True
+        return False
+
     # -- region redaction -------------------------------------------------
     @property
     def regions(self) -> tuple[Rect, ...]:
