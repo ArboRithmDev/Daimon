@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local config holding real exclusion zones (secrets) — never commit
+config/exclusions.yaml
+config/*.local.yaml
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Captured frames / scratch
+*.png
+*.jpg
+!docs/**/*.png

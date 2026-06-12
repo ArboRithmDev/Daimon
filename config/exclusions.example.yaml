@@ -1,0 +1,23 @@
+# Daimon exclusion zones — the secrets filter.
+#
+# Copy to `config/exclusions.yaml` (git-ignored) and fill in your real zones,
+# or point $DAIMON_CONFIG at another file. Everything matching here is hidden
+# BEFORE any sense serves data — the same filter guards Vue and Touché.
+#
+# This example is an empty filter: nothing excluded.
+
+exclusions:
+  # Bundle ids whose windows must never be perceived. If one of these is the
+  # frontmost app, the whole snapshot is refused.
+  apps: []
+    # - com.1password.1password
+    # - com.apple.keychainaccess
+
+  # Regex patterns matched against window titles; matching windows are redacted.
+  window_titles: []
+    # - "(?i)password"
+    # - "(?i)secret"
+
+  # Fixed screen rectangles (global display points) always blacked out.
+  regions: []
+    # - { x: 0, y: 0, width: 400, height: 80 }

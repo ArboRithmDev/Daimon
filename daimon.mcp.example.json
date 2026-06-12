@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy this into your MCP client config to register Daimon. For Claude Code, place the mcpServers block in .mcp.json (project) or ~/.claude.json (global). Adjust the python path to the interpreter where `pip install -e .` was run.",
+  "mcpServers": {
+    "daimon": {
+      "command": "/Users/Ben/.hfenv/bin/python3.12",
+      "args": ["-m", "daimon"],
+      "env": {}
+    }
+  }
+}

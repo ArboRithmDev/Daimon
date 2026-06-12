@@ -1,0 +1,129 @@
+"""macOS screen capture backend for the Vue sense.
+
+Uses Quartz (CoreGraphics) to grab a display as a PIL image. Requires the host
+process to hold Screen Recording permission (System Settings → Privacy &
+Security → Screen Recording). Returns raw pixels only — Daimon does no
+vision/OCR itself; the AI client looks at the image with its own eyes.
+
+Capture is per-display (CGDisplayCreateImage) so each frame is a single clean
+screen, no black padding from a multi-display bounding box.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Display:
+    """An active display and its index in the active-display list."""
+
+    index: int
+    display_id: int
+    width: int
+    height: int
+    is_main: bool
+
+
+@dataclass(frozen=True)
+class Frame:
+    """A captured screen frame plus the metadata a sense needs to describe it."""
+
+    image: "object"  # PIL.Image.Image (typed loosely to avoid a hard import here)
+    width: int
+    height: int
+    display_index: int
+    frontmost_bundle_id: str | None
+
+
+def frontmost_bundle_id() -> str | None:
+    """Bundle id of the frontmost application, for the app-level exclusion gate."""
+    from AppKit import NSWorkspace
+
+    app = NSWorkspace.sharedWorkspace().frontmostApplication()
+    return app.bundleIdentifier() if app else None
+
+
+def list_displays() -> list[Display]:
+    """Enumerate active displays in stable order (index 0 = first active)."""
+    import Quartz
+
+    max_displays = 16
+    err, ids, count = Quartz.CGGetActiveDisplayList(max_displays, None, None)
+    if err != 0:
+        raise RuntimeError(f"CGGetActiveDisplayList failed: {err}")
+
+    main_id = Quartz.CGMainDisplayID()
+    out: list[Display] = []
+    for i, did in enumerate(ids[:count]):
+        out.append(
+            Display(
+                index=i,
+                display_id=int(did),
+                width=int(Quartz.CGDisplayPixelsWide(did)),
+                height=int(Quartz.CGDisplayPixelsHigh(did)),
+                is_main=(did == main_id),
+            )
+        )
+    return out
+
+
+def _cgimage_to_pil(image_ref):
+    """Convert a CGImage (BGRA) to an RGB PIL image."""
+    import Quartz
+    from PIL import Image
+
+    width = Quartz.CGImageGetWidth(image_ref)
+    height = Quartz.CGImageGetHeight(image_ref)
+    bytes_per_row = Quartz.CGImageGetBytesPerRow(image_ref)
+
+    provider = Quartz.CGImageGetDataProvider(image_ref)
+    buf = bytes(Quartz.CGDataProviderCopyData(provider))
+
+    img = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", bytes_per_row, 1)
+    return img.convert("RGB")
+
+
+def capture_display(display_index: int = 0, max_width: int | None = 1600) -> Frame:
+    """Capture one active display by index, optionally downscaled to `max_width`.
+
+    `display_index` indexes `list_displays()`; 0 is the first active display.
+    Downscaling keeps payloads small for the ~1-2 fps ambient use case and
+    spares the client's vision budget.
+    """
+    import Quartz
+
+    displays = list_displays()
+    if not displays:
+        raise RuntimeError("No active displays found.")
+    if display_index < 0 or display_index >= len(displays):
+        raise IndexError(
+            f"display_index {display_index} out of range (0..{len(displays) - 1})"
+        )
+
+    display = displays[display_index]
+    image_ref = Quartz.CGDisplayCreateImage(display.display_id)
+    if image_ref is None:
+        raise RuntimeError(
+            "Screen capture returned no image — check Screen Recording permission."
+        )
+
+    img = _cgimage_to_pil(image_ref)
+    if max_width and img.width > max_width:
+        ratio = max_width / img.width
+        img = img.resize((max_width, int(img.height * ratio)))
+
+    return Frame(
+        image=img,
+        width=img.width,
+        height=img.height,
+        display_index=display_index,
+        frontmost_bundle_id=frontmost_bundle_id(),
+    )
+
+
+# Back-compat alias: the main display is index 0 in practice for single-screen
+# setups; callers wanting "the primary" can pass the main display's index.
+def capture_main_display(max_width: int | None = 1600) -> Frame:
+    main = next((d for d in list_displays() if d.is_main), None)
+    return capture_display(main.index if main else 0, max_width=max_width)
