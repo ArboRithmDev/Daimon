@@ -33,6 +33,9 @@ class Rect:
     height: int
 
 
+_DEFAULT_SECRET_ROLES = ("AXSecureTextField",)
+
+
 @dataclass(frozen=True)
 class ExclusionConfig:
     """Declarative exclusion zones. Anything matching is hidden before serving.
@@ -42,11 +45,15 @@ class ExclusionConfig:
                       whole snapshot is refused.
     - window_titles:  regex patterns; matching windows are redacted.
     - regions:        fixed screen rectangles always blacked out.
+    - secret_roles:   AX roles whose value must be blanked (e.g. AXSecureTextField).
+    - secret_apps:    bundle IDs whose content is always treated as secret.
     """
 
     apps: tuple[str, ...] = ()
     window_titles: tuple[str, ...] = ()
     regions: tuple[Rect, ...] = ()
+    secret_roles: tuple[str, ...] = _DEFAULT_SECRET_ROLES
+    secret_apps: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -78,6 +85,8 @@ def load_config(path: Path | None = None) -> Config:
             apps=tuple(excl.get("apps") or ()),
             window_titles=tuple(excl.get("window_titles") or ()),
             regions=regions,
+            secret_roles=tuple(excl.get("secret_roles") or _DEFAULT_SECRET_ROLES),
+            secret_apps=tuple(excl.get("secret_apps") or ()),
         )
     )
 

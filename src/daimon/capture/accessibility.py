@@ -205,3 +205,15 @@ def element_at(x: int, y: int) -> dict:
     if err != 0 or element is None:
         raise RuntimeError(f"No accessibility element at ({x}, {y}) [err={err}].")
     return node_from_element(element)
+
+
+def focused_element() -> dict:
+    """The system-wide focused UI element (for keyboard-action context)."""
+    from ApplicationServices import (
+        AXUIElementCreateSystemWide, kAXFocusedUIElementAttribute,
+    )
+    system = AXUIElementCreateSystemWide()
+    el = _copy_attr(system, kAXFocusedUIElementAttribute)
+    if el is None:
+        raise RuntimeError("No focused element.")
+    return node_from_element(el)

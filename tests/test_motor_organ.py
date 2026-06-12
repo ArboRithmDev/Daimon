@@ -7,10 +7,11 @@ from daimon.motor.audit import AppendOnlyLedger
 from daimon.motor.gate import FakeGate
 from daimon.motor.guard import PolicyGuard
 from daimon.motor.organ import MotorOrgan
+from daimon.motor.probe import FakeProber
 from daimon.motor.types import Declaration, Level, MotorAction, Target
 
 
-def _organ(tmp_path, ceiling, gate_answer=False, actuator=None):
+def _organ(tmp_path, ceiling, gate_answer=False, actuator=None, prober=None):
     guard = PolicyGuard(ExclusionFilter(ExclusionConfig()), ceiling_provider=lambda: ceiling)
     return MotorOrgan(
         guard=guard,
@@ -18,6 +19,7 @@ def _organ(tmp_path, ceiling, gate_answer=False, actuator=None):
         actuator=actuator or FakeActuator(),
         session_log=AppendOnlyLedger(tmp_path / "session.jsonl"),
         clock=lambda: "T",
+        prober=prober or FakeProber(target=Target(observed=True)),
     )
 
 
@@ -38,7 +40,8 @@ def test_refused_action_is_not_executed(tmp_path):
 
 def test_allowed_action_executes(tmp_path):
     act = FakeActuator()
-    organ = _organ(tmp_path, Level.INPUT, actuator=act)
+    organ = _organ(tmp_path, Level.INPUT, actuator=act,
+                   prober=FakeProber(target=Target(role="AXButton", label="Cancel", observed=True)))
     out = organ.act(_action(Level.INPUT, Target(role="AXButton", label="Cancel")))
     assert out["status"] == "done"
     assert act.executed[0].name == "click"
@@ -54,7 +57,8 @@ def test_gated_action_denied_by_human_is_not_executed(tmp_path):
 
 def test_gated_action_approved_executes_and_logs(tmp_path):
     act = FakeActuator()
-    organ = _organ(tmp_path, Level.VALIDATION, gate_answer=True, actuator=act)
+    organ = _organ(tmp_path, Level.VALIDATION, gate_answer=True, actuator=act,
+                   prober=FakeProber(target=Target(role="AXButton", label="Send", observed=True)))
     out = organ.act(_action(Level.INPUT, Target(role="AXButton", label="Send")))
     assert out["status"] == "done"
     assert act.executed[0].target.label == "Send"
@@ -70,6 +74,7 @@ def test_l4_destructive_no_log_means_no_act(tmp_path):
     organ = MotorOrgan(
         guard=guard, gate=FakeGate(), actuator=act,
         session_log=AppendOnlyLedger(bad), clock=lambda: "T",
+        prober=FakeProber(target=Target(role="AXButton", label="Send", observed=True)),
     )
     out = organ.act(_action(Level.VALIDATION, Target(role="AXButton", label="Send"), reversible=False, name="press"))
     assert out["status"] == "refused"
@@ -86,6 +91,7 @@ def test_corrupt_session_log_fails_safe_to_refused(tmp_path):
     organ = MotorOrgan(
         guard=guard, gate=FakeGate(), actuator=act,
         session_log=AppendOnlyLedger(log_path), clock=lambda: "T",
+        prober=FakeProber(target=Target(role="AXButton", label="Send", observed=True)),
     )
     out = organ.act(_action(Level.VALIDATION, Target(role="AXButton", label="Send"), reversible=False, name="press"))
     assert out["status"] == "refused"

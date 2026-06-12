@@ -14,7 +14,16 @@ def test_registry_is_complete():
     assert set(ACTIONS) == {
         "main_navigate", "main_click", "main_type", "main_drag", "main_press",
         "main_key", "main_hover", "main_activate",
+        "main_mouse_down", "main_mouse_up", "main_key_down", "main_key_up",
     }
+
+
+def test_primitives_are_autonomous():
+    """actions.py is the single source of truth for primitive levels (N1)."""
+    assert level_for("main_mouse_down") == Level.AUTONOMOUS
+    assert level_for("main_mouse_up") == Level.AUTONOMOUS
+    assert level_for("main_key_down") == Level.AUTONOMOUS
+    assert level_for("main_key_up") == Level.AUTONOMOUS
 
 
 def test_unknown_verb_raises():

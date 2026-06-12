@@ -16,6 +16,7 @@ from .actuator import Actuator
 from .audit import AppendOnlyLedger
 from .gate import HumanGate
 from .guard import PolicyGuard
+from .probe import Prober
 from .types import MotorAction, Verdict
 
 
@@ -27,12 +28,14 @@ class MotorOrgan:
         actuator: Actuator,
         session_log: AppendOnlyLedger,
         clock: Callable[[], str],
+        prober: Prober,
     ) -> None:
         self._guard = guard
         self._gate = gate
         self._actuator = actuator
         self._log = session_log
         self._clock = clock
+        self._prober = prober
 
     def _record(self, action: MotorAction, phase: str, extra: dict) -> bool:
         try:
@@ -50,6 +53,14 @@ class MotorOrgan:
             return False
 
     def act(self, action: MotorAction) -> dict:
+        claimed = action.target
+        observed = self._prober.observe(action)
+        from dataclasses import replace
+        action = replace(action, target=observed)
+        if (claimed.role, claimed.label) != (observed.role, observed.label):
+            self._record(action, "divergence",
+                         {"claimed_role": claimed.role, "claimed_label": claimed.label,
+                          "observed_role": observed.role, "observed_label": observed.label})
         decision = self._guard.evaluate(action)
 
         if decision.verdict == Verdict.REFUSE:

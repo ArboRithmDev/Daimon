@@ -37,6 +37,14 @@ class PolicyGuard:
         if self._exclusions.is_title_excluded(action.target.label):
             return Decision(Verdict.REFUSE, "target in exclusion zone")
 
+        if self._exclusions.is_point_excluded(action.target.x, action.target.y):
+            return Decision(Verdict.REFUSE, "action target in excluded region")
+
+        if not action.target.observed:
+            if ceiling == Level.AUTONOMOUS:
+                return Decision(Verdict.REFUSE, "target unobservable under L4 (no blind autonomous action)")
+            return Decision(Verdict.GATE, "Daimon could not verify the target")
+
         rev = self._classify(action)
         risky = rev.irreversible or (action.declaration.reversible is False)
 

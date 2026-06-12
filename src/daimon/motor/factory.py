@@ -14,6 +14,7 @@ from .consent import ConsentManager
 from .gate import MacOSGate
 from .guard import PolicyGuard
 from .organ import MotorOrgan
+from .probe import MacOSProber
 
 _LOGS = Path(__file__).resolve().parents[3] / "logs"
 _STATE = Path(__file__).resolve().parents[3] / "config" / "motor.state.json"
@@ -46,4 +47,5 @@ def build_organ() -> MotorOrgan:
         actuator=MacOSActuator(),
         session_log=AppendOnlyLedger(_LOGS / "session.jsonl"),
         clock=_now,
+        prober=MacOSProber(),
     )

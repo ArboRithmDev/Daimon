@@ -22,7 +22,8 @@ _DANGER_TEXT = re.compile(
     r"confirm|confirmer|valider|"
     r"reset|réinitialiser|"
     r"destroy|détruire|discard|jeter|"
-    r"submit|soumettre"
+    r"submit|soumettre|"
+    r"trash|corbeille|bin"
     r")\b"
 )
 
@@ -49,9 +50,11 @@ def classify(action: MotorAction) -> Reversibility:
         return Reversibility(True, f"dangerous key combo: {keys}")
 
     # Fail-safe: an unidentified target at INPUT level or above is treated as risky.
-    # Key actions are exempt: they target the keyboard, not a UI element.
+    # Keyboard actions are exempt by NAME (they target the keyboard, not a UI
+    # element). Keyed off action.name — not a params probe — so a pointer action
+    # cannot dodge the fail-safe by smuggling a bogus `key` param.
     identified = bool(action.target.role or action.target.label)
-    is_key_action = bool(action.params.get("key") or action.params.get("keys") or action.params.get("keystr"))
+    is_key_action = action.name == "key"
     if action.level >= Level.INPUT and not identified and not is_key_action:
         return Reversibility(True, "unidentified target at input level (fail-safe)")
 

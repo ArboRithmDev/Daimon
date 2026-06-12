@@ -27,6 +27,10 @@ ACTIONS: dict[str, ActionDef] = {
     "main_key": ActionDef("main_key", Level.INPUT, "discrete key / chord"),
     "main_hover": ActionDef("main_hover", Level.NONDESTRUCTIVE, "move pointer only"),
     "main_activate": ActionDef("main_activate", Level.NONDESTRUCTIVE, "bring app/window frontmost"),
+    "main_mouse_down": ActionDef("main_mouse_down", Level.AUTONOMOUS, "press and hold a mouse button"),
+    "main_mouse_up": ActionDef("main_mouse_up", Level.AUTONOMOUS, "release a held mouse button"),
+    "main_key_down": ActionDef("main_key_down", Level.AUTONOMOUS, "press and hold a key"),
+    "main_key_up": ActionDef("main_key_up", Level.AUTONOMOUS, "release a held key"),
 }
 
 

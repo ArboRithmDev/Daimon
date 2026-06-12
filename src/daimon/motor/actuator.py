@@ -8,9 +8,11 @@ testable with `FakeActuator`.
 
 from __future__ import annotations
 
+import time
 from typing import Protocol
 
 from .types import MotorAction
+from .watchdog import HoldWatchdog
 
 
 class Actuator(Protocol):
@@ -30,7 +32,15 @@ class FakeActuator:
 
 
 class MacOSActuator:
+    def __init__(self) -> None:
+        self._watchdog = HoldWatchdog(
+            timeout=10.0,
+            release=self._auto_release,
+            clock=time.monotonic,
+        )
+
     def execute(self, action: MotorAction) -> dict:
+        self._watchdog.tick()
         handler = {
             "click": self._click,
             "type": self._type,
@@ -40,6 +50,10 @@ class MacOSActuator:
             "key": self._key,
             "hover": self._hover,
             "activate": self._activate,
+            "mouse_down": self._mouse_down,
+            "mouse_up": self._mouse_up,
+            "key_down": self._key_down,
+            "key_up": self._key_up,
         }.get(action.name)
         if handler is None:
             raise ValueError(f"unknown action: {action.name}")
@@ -111,9 +125,8 @@ class MacOSActuator:
 
     def _drag(self, action: MotorAction) -> None:
         import Quartz
-
-        x1, y1 = action.params["from"]
-        x2, y2 = action.params["to"]
+        x1, y1 = action.params["from_x"], action.params["from_y"]
+        x2, y2 = action.params["to_x"], action.params["to_y"]
         down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, (x1, y1), Quartz.kCGMouseButtonLeft)
         drag = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDragged, (x2, y2), Quartz.kCGMouseButtonLeft)
         up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, (x2, y2), Quartz.kCGMouseButtonLeft)
@@ -143,3 +156,52 @@ class MacOSActuator:
         if dy:
             ev = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitPixel, 1, dy)
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _mouse_down(self, action: MotorAction) -> None:
+        import Quartz
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        ev = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, (x, y), Quartz.kCGMouseButtonLeft)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+        self._watchdog.hold("mouse_left")
+
+    def _mouse_up(self, action: MotorAction) -> None:
+        import Quartz
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        ev = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, (x, y), Quartz.kCGMouseButtonLeft)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+        self._watchdog.release_hold("mouse_left")
+
+    def _key_down(self, action: MotorAction) -> None:
+        import Quartz
+        from .keys import keycode_for, modifier_mask
+        ev = Quartz.CGEventCreateKeyboardEvent(None, keycode_for(action.params["key"]), True)
+        flags = modifier_mask(action.params.get("modifiers", []))
+        if flags:
+            Quartz.CGEventSetFlags(ev, flags)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+        self._watchdog.hold(f"key_{action.params['key']}")
+
+    def _key_up(self, action: MotorAction) -> None:
+        import Quartz
+        from .keys import keycode_for
+        ev = Quartz.CGEventCreateKeyboardEvent(None, keycode_for(action.params["key"]), False)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+        self._watchdog.release_hold(f"key_{action.params['key']}")
+
+    def _auto_release(self, handle: str) -> None:
+        """Fail-safe release called by the watchdog for past-deadline holds."""
+        try:
+            import Quartz
+            if handle == "mouse_left":
+                ev = Quartz.CGEventCreateMouseEvent(
+                    None, Quartz.kCGEventLeftMouseUp, (0, 0), Quartz.kCGMouseButtonLeft
+                )
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+            elif handle.startswith("key_"):
+                from .keys import keycode_for
+                key_name = handle[len("key_"):]
+                code = keycode_for(key_name)
+                ev = Quartz.CGEventCreateKeyboardEvent(None, code, False)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+        except Exception:
+            pass

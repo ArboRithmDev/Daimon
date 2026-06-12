@@ -31,6 +31,7 @@ class Target:
     value: str | None = None
     x: int | None = None
     y: int | None = None
+    observed: bool = True
 
 
 @dataclass(frozen=True)

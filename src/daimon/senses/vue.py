@@ -66,7 +66,49 @@ class Vue(Sense):
                 raise PermissionError(f"Vue refused: {gate.reason}")
 
             image = self._exclusions.redact_image(frame.image)
+            try:
+                rects = self._secret_rects(frame.frontmost_bundle_id)
+                from ..exclusions import black_out_rects
+                black_out_rects(image, rects)
+            except Exception:
+                pass  # best-effort; never fail a capture on redaction-probe error
 
             buf = io.BytesIO()
             image.save(buf, format="PNG")
             return MCPImage(data=buf.getvalue(), format="png")
+
+    def _secret_rects(self, bundle_id: str | None) -> list[dict]:
+        """Return {x,y,width,height} rects for secret-role elements in the frontmost app.
+
+        Best-effort: returns [] whenever accessibility is unavailable or errors.
+        The whole-app secret-app gate is already handled by evaluate_frontmost;
+        this method handles per-element secret roles only.
+        """
+        try:
+            from ..capture import accessibility as ax
+            if not ax.is_trusted():
+                return []
+            tree = ax.snapshot_tree(max_depth=12, prune_empty=False)
+            rects: list[dict] = []
+
+            def walk(node: dict) -> None:
+                if not isinstance(node, dict):
+                    return
+                role = node.get("role")
+                if role and self._exclusions.is_target_secret(role=role):
+                    pos = node.get("position")
+                    size = node.get("size")
+                    if pos and size:
+                        rects.append({
+                            "x": pos["x"],
+                            "y": pos["y"],
+                            "width": size["width"],
+                            "height": size["height"],
+                        })
+                for child in node.get("children") or []:
+                    walk(child)
+
+            walk(tree)
+            return rects
+        except Exception:
+            return []
