@@ -1,0 +1,15 @@
+# Daimon motor organ — authorization config.
+#
+# Copy to config/motor.yaml (git-ignored) to change the ceiling or the L4
+# phrases. Default is L0 (hands off). L4 is NOT set here — it is engaged at
+# runtime via `python -m daimon.motor.control engage`.
+
+motor:
+  # Static ceiling for the AI's hands: READ | NONDESTRUCTIVE | INPUT | VALIDATION
+  ceiling: READ
+
+  l4:
+    # The exact phrases a human must type in the control CLI to engage/disengage
+    # full autonomy. Change them to something personal; they are proof of intent.
+    engagement_phrase: "I ENGAGE DAIMON L4 AUTONOMY ON THIS MACHINE"
+    disengagement_phrase: "I DISENGAGE DAIMON L4 AUTONOMY"

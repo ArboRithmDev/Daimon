@@ -80,3 +80,43 @@ def load_config(path: Path | None = None) -> Config:
             regions=regions,
         )
     )
+
+
+# --- motor config ---------------------------------------------------------
+from .motor.types import Level  # noqa: E402  (kept near its use)
+
+_MOTOR_DEFAULT = _REPO_ROOT / "config" / "motor.yaml"
+_MOTOR_EXAMPLE = _REPO_ROOT / "config" / "motor.example.yaml"
+
+_DEFAULT_ENGAGE = "I ENGAGE DAIMON L4 AUTONOMY ON THIS MACHINE"
+_DEFAULT_DISENGAGE = "I DISENGAGE DAIMON L4 AUTONOMY"
+
+
+@dataclass(frozen=True)
+class MotorConfig:
+    ceiling: Level = Level.READ
+    engagement_phrase: str = _DEFAULT_ENGAGE
+    disengagement_phrase: str = _DEFAULT_DISENGAGE
+
+
+def _motor_path() -> Path:
+    env = os.environ.get("DAIMON_MOTOR_CONFIG")
+    if env:
+        return Path(env).expanduser()
+    if _MOTOR_DEFAULT.exists():
+        return _MOTOR_DEFAULT
+    return _MOTOR_EXAMPLE
+
+
+def load_motor_config(path: Path | None = None) -> MotorConfig:
+    path = path or _motor_path()
+    if not path.exists():
+        return MotorConfig()
+    raw = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("motor", {}) or {}
+    ceiling = Level[raw.get("ceiling", "READ")] if raw.get("ceiling") else Level.READ
+    l4 = raw.get("l4", {}) or {}
+    return MotorConfig(
+        ceiling=ceiling,
+        engagement_phrase=l4.get("engagement_phrase", _DEFAULT_ENGAGE),
+        disengagement_phrase=l4.get("disengagement_phrase", _DEFAULT_DISENGAGE),
+    )

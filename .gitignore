@@ -23,3 +23,7 @@ config/*.local.yaml
 *.png
 *.jpg
 !docs/**/*.png
+
+config/motor.yaml
+config/motor.state.json
+logs/
