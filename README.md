@@ -28,6 +28,12 @@ Daimon gives any AI — Claude CLI, a desktop AI app, anything that speaks
 Daimon supplies pixels and structure only — it does **no** vision/OCR itself.
 The client looks with its own eyes. That is what keeps it agnostic.
 
+**Bounded by default (cost control):** `touche_tree` accepts `max_depth`,
+`root={x,y}` (subtree under a point), `roles=[...]`, `prune_empty`, `summary=true`
+(one line per node), and `window={pid|bundle|title}` to target a specific app
+instead of the frontmost. `vue_snapshot` accepts `region={x,y,width,height}` and
+defaults to `max_width=720` (pass a larger value for fine detail).
+
 ## The hands (motor organ)
 
 Daimon can act under a ceiling it enforces itself (default **L0**, hands off):
@@ -40,7 +46,10 @@ Daimon can act under a ceiling it enforces itself (default **L0**, hands off):
 | L3 VALIDATION | engaging buttons | human confirmation on any non-return |
 | L4 AUTONOMOUS | full autonomy | none — everything traced |
 
-- Tools: `main_navigate`, `main_click`, `main_type`, `main_press` (`main_drag` planned).
+- Tools: `main_navigate`, `main_click` (`button=left|right|middle`, `count=1|2`,
+  `modifiers`), `main_key` (discrete key / chord, distinct from `main_type`),
+  `main_hover`, `main_press`, `main_type`, `main_activate` (bring an app
+  frontmost). Low-level press-and-hold primitives are planned (gated to L4).
 - Points of no return (send/delete/pay/…) are classified (AI declares, Daimon
   verifies) and gated by a **native macOS dialog**. Timeout = deny.
 - **L4** is engaged only by a human typing a phrase out-of-band:
