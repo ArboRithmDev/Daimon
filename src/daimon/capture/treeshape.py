@@ -36,6 +36,8 @@ def shape_tree(
     _depth: int = 0,
 ) -> dict:
     """Return a bounded copy of `node`. Roots are always kept."""
+    if not roles:  # treat [] like None (no filter), not "match nothing"
+        roles = None
     shaped = {k: v for k, v in node.items() if k != "children"}
     if "value" in shaped:
         shaped["value"] = _truncate(shaped["value"], max_value_chars)

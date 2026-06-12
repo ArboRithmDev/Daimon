@@ -40,6 +40,11 @@ def classify(action: MotorAction) -> Reversibility:
         return Reversibility(True, f"target matches non-return verb: {text!r}")
 
     keys = action.params.get("keys") or action.params.get("keystr")
+    if not keys and action.params.get("key"):
+        # Build the combo defensively so a directly-constructed key action can't
+        # skip the danger check by omitting keystr.
+        mods = action.params.get("modifiers") or []
+        keys = "+".join([*mods, action.params["key"]])
     if keys and _DANGER_KEYS.search(keys):
         return Reversibility(True, f"dangerous key combo: {keys}")
 
