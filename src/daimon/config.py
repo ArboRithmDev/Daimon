@@ -108,12 +108,28 @@ def _motor_path() -> Path:
     return _MOTOR_EXAMPLE
 
 
+def _parse_static_ceiling(name) -> Level:
+    """Parse a config ceiling, clamped to VALIDATION.
+
+    L4/AUTONOMOUS must never come from static config — it requires written human
+    engagement recorded in the consent ledger. An unknown name falls back to the
+    safe default (READ).
+    """
+    if not name:
+        return Level.READ
+    try:
+        level = Level[str(name).strip().upper()]
+    except KeyError:
+        return Level.READ
+    return level if level <= Level.VALIDATION else Level.VALIDATION
+
+
 def load_motor_config(path: Path | None = None) -> MotorConfig:
     path = path or _motor_path()
     if not path.exists():
         return MotorConfig()
     raw = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("motor", {}) or {}
-    ceiling = Level[raw.get("ceiling", "READ")] if raw.get("ceiling") else Level.READ
+    ceiling = _parse_static_ceiling(raw.get("ceiling"))
     l4 = raw.get("l4", {}) or {}
     return MotorConfig(
         ceiling=ceiling,

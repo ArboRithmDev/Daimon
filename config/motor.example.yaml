@@ -6,6 +6,9 @@
 
 motor:
   # Static ceiling for the AI's hands: READ | NONDESTRUCTIVE | INPUT | VALIDATION
+  # (AUTONOMOUS/L4 is NOT settable here — it requires written human engagement
+  #  via `python -m daimon.motor.control engage`. A value above VALIDATION is
+  #  clamped down to VALIDATION.)
   ceiling: READ
 
   l4:
