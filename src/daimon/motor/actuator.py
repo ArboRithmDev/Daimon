@@ -111,9 +111,8 @@ class MacOSActuator:
 
     def _drag(self, action: MotorAction) -> None:
         import Quartz
-
-        x1, y1 = action.params["from"]
-        x2, y2 = action.params["to"]
+        x1, y1 = action.params["from_x"], action.params["from_y"]
+        x2, y2 = action.params["to_x"], action.params["to_y"]
         down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, (x1, y1), Quartz.kCGMouseButtonLeft)
         drag = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDragged, (x2, y2), Quartz.kCGMouseButtonLeft)
         up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, (x2, y2), Quartz.kCGMouseButtonLeft)

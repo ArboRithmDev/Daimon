@@ -112,6 +112,17 @@ def _register_motor(mcp) -> None:
             name="activate", level=level_for("main_activate"), target=Target(),
             declaration=Declaration(reversible=True, intent=intent), params=params))
 
+    @mcp.tool(name="main_drag", description=(
+        "Drag from (from_x,from_y) to (to_x,to_y). The drop destination is "
+        "classified for reversibility (e.g. dropping on Trash gates)."))
+    def main_drag(from_x: int, from_y: int, to_x: int, to_y: int, intent: str,
+                  button: str = "left", reversible: bool = True) -> dict:
+        return organ.act(MotorAction(
+            name="drag", level=level_for("main_drag"), target=Target(),
+            declaration=Declaration(reversible=reversible, intent=intent),
+            params={"from_x": from_x, "from_y": from_y, "to_x": to_x, "to_y": to_y,
+                    "button": button}))
+
 
 def build_server() -> FastMCP:
     config = load_config()

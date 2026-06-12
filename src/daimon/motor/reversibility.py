@@ -22,7 +22,8 @@ _DANGER_TEXT = re.compile(
     r"confirm|confirmer|valider|"
     r"reset|réinitialiser|"
     r"destroy|détruire|discard|jeter|"
-    r"submit|soumettre"
+    r"submit|soumettre|"
+    r"trash|corbeille|bin"
     r")\b"
 )
 
