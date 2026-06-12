@@ -13,7 +13,7 @@ from .config import load_config
 from .exclusions import ExclusionFilter
 from .motor.actions import level_for
 from .motor.factory import build_organ
-from .motor.types import Declaration, MotorAction, Target
+from .motor.types import Declaration, Level, MotorAction, Target
 from .senses.base import Sense
 from .senses.touche import Touche
 from .senses.vue import Vue
@@ -122,6 +122,36 @@ def _register_motor(mcp) -> None:
             declaration=Declaration(reversible=reversible, intent=intent),
             params={"from_x": from_x, "from_y": from_y, "to_x": to_x, "to_y": to_y,
                     "button": button}))
+
+    @mcp.tool(name="main_mouse_down", description=(
+        "Low-level: press and hold the left mouse button at (x,y). Advanced "
+        "primitive — only runs at L4 (full autonomy). Auto-released by a watchdog "
+        "if never followed by main_mouse_up."))
+    def main_mouse_down(x: int, y: int, intent: str) -> dict:
+        return organ.act(MotorAction(
+            name="mouse_down", level=Level.AUTONOMOUS, target=_target(x, y, None, None),
+            declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
+
+    @mcp.tool(name="main_mouse_up", description="Low-level: release the held left mouse button at (x,y).")
+    def main_mouse_up(x: int, y: int, intent: str) -> dict:
+        return organ.act(MotorAction(
+            name="mouse_up", level=Level.AUTONOMOUS, target=_target(x, y, None, None),
+            declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
+
+    @mcp.tool(name="main_key_down", description=(
+        "Low-level: press and hold a key. Advanced primitive — L4 only. "
+        "Auto-released by a watchdog."))
+    def main_key_down(key: str, intent: str, modifiers: list[str] | None = None) -> dict:
+        return organ.act(MotorAction(
+            name="key_down", level=Level.AUTONOMOUS, target=Target(),
+            declaration=Declaration(reversible=True, intent=intent),
+            params={"key": key, "modifiers": modifiers or []}))
+
+    @mcp.tool(name="main_key_up", description="Low-level: release a held key.")
+    def main_key_up(key: str, intent: str) -> dict:
+        return organ.act(MotorAction(
+            name="key_up", level=Level.AUTONOMOUS, target=Target(),
+            declaration=Declaration(reversible=True, intent=intent), params={"key": key}))
 
 
 def build_server() -> FastMCP:
