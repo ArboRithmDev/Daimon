@@ -27,6 +27,8 @@ class ExclusionFilter:
     def __init__(self, config: ExclusionConfig) -> None:
         self._config = config
         self._title_patterns = tuple(re.compile(p) for p in config.window_titles)
+        self._secret_roles = set(config.secret_roles)
+        self._secret_apps = set(config.secret_apps)
 
     # -- app-level gate ---------------------------------------------------
     def is_app_excluded(self, bundle_id: str | None) -> bool:
@@ -43,6 +45,15 @@ class ExclusionFilter:
         if not title:
             return False
         return any(p.search(title) for p in self._title_patterns)
+
+    # -- secret-target check ----------------------------------------------
+    def is_target_secret(self, role: str | None = None, bundle_id: str | None = None) -> bool:
+        """A target is secret if its role is a secret role or its app is declared secret."""
+        if role and role in self._secret_roles:
+            return True
+        if bundle_id and bundle_id in self._secret_apps:
+            return True
+        return False
 
     # -- region redaction -------------------------------------------------
     @property
@@ -65,20 +76,26 @@ class ExclusionFilter:
         return image
 
     def redact_nodes(self, nodes):
-        """Drop accessibility nodes (and their subtrees) whose title is excluded.
+        """Drop title-excluded subtrees and blank values of secret-role nodes.
 
         Same title patterns that redact windows for Vue prune the a11y tree for
-        Touché — one declared zone, hidden in every sense. Operates on the plain
-        dict trees produced by the accessibility backend; returns a new list.
+        Touché — one declared zone, hidden in every sense. Secret-role nodes (e.g.
+        AXSecureTextField) have their value blanked and gain ``redacted=True`` so
+        callers know the field was intentionally suppressed. Does not mutate the
+        input; works on plain dict trees from the accessibility backend.
         """
         def walk(items):
             kept = []
             for node in items:
                 if self.is_title_excluded(node.get("title")):
                     continue
+                node = dict(node)
+                if node.get("role") in self._secret_roles:
+                    node["value"] = "█" if node.get("value") else node.get("value")
+                    node["redacted"] = True
                 children = node.get("children")
                 if children:
-                    node = {**node, "children": walk(children)}
+                    node["children"] = walk(children)
                 kept.append(node)
             return kept
 
