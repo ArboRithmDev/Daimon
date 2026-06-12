@@ -11,8 +11,9 @@ Daimon gives any AI — Claude CLI, a desktop AI app, anything that speaks
 - **Agnostic by construction.** One standard transport (MCP) → no per-AI
   adapter. Claude is the most capable client today; Daimon plays fair with the
   rest.
-- **Perception ≠ action.** Daimon reports; it never clicks or types. The motor
-  organ ("the hands") is out of scope and lives elsewhere.
+- **Perception ≠ action, by default.** The senses only report. Acting is a
+  separate organ ("the hands") under a ceiling Daimon enforces itself — off (L0)
+  until a human opts in. See *The hands* below.
 - **Secrets filter from day one.** Excluded apps/windows/regions are removed
   *before* any sense serves data.
 
