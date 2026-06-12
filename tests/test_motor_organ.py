@@ -1,3 +1,5 @@
+import json
+
 from daimon.config import ExclusionConfig
 from daimon.exclusions import ExclusionFilter
 from daimon.motor.actuator import FakeActuator
@@ -68,6 +70,22 @@ def test_l4_destructive_no_log_means_no_act(tmp_path):
     organ = MotorOrgan(
         guard=guard, gate=FakeGate(), actuator=act,
         session_log=AppendOnlyLedger(bad), clock=lambda: "T",
+    )
+    out = organ.act(_action(Level.VALIDATION, Target(role="AXButton", label="Send"), reversible=False, name="press"))
+    assert out["status"] == "refused"
+    assert "no-log" in out["reason"]
+    assert act.executed == []
+
+
+def test_corrupt_session_log_fails_safe_to_refused(tmp_path):
+    # A corrupt (non-JSON) session log must refuse, not crash, and not execute.
+    log_path = tmp_path / "session.jsonl"
+    log_path.write_text("this is not json\n", encoding="utf-8")
+    guard = PolicyGuard(ExclusionFilter(ExclusionConfig()), ceiling_provider=lambda: Level.AUTONOMOUS)
+    act = FakeActuator()
+    organ = MotorOrgan(
+        guard=guard, gate=FakeGate(), actuator=act,
+        session_log=AppendOnlyLedger(log_path), clock=lambda: "T",
     )
     out = organ.act(_action(Level.VALIDATION, Target(role="AXButton", label="Send"), reversible=False, name="press"))
     assert out["status"] == "refused"

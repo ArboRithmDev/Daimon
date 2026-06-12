@@ -46,7 +46,7 @@ class MotorOrgan:
                 **extra,
             })
             return True
-        except OSError:
+        except (OSError, ValueError):
             return False
 
     def act(self, action: MotorAction) -> dict:
