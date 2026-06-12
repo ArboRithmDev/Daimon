@@ -11,7 +11,10 @@ def test_registry_maps_verbs_to_levels():
 
 
 def test_registry_is_complete():
-    assert set(ACTIONS) == {"main_navigate", "main_click", "main_type", "main_drag", "main_press"}
+    assert set(ACTIONS) == {
+        "main_navigate", "main_click", "main_type", "main_drag", "main_press",
+        "main_key", "main_hover", "main_activate",
+    }
 
 
 def test_unknown_verb_raises():

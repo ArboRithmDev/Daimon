@@ -37,22 +37,65 @@ class MacOSActuator:
             "drag": self._drag,
             "press": self._press,
             "navigate": self._navigate,
+            "key": self._key,
+            "hover": self._hover,
+            "activate": self._activate,
         }.get(action.name)
         if handler is None:
             raise ValueError(f"unknown action: {action.name}")
         handler(action)
         return {"status": "executed", "action": action.name}
 
+    def _key(self, action: MotorAction) -> None:
+        import Quartz
+        from .keys import keycode_for, modifier_mask
+        code = keycode_for(action.params["key"])
+        flags = modifier_mask(action.params.get("modifiers", []))
+        count = int(action.params.get("count", 1))
+        for _ in range(count):
+            for is_down in (True, False):
+                ev = Quartz.CGEventCreateKeyboardEvent(None, code, is_down)
+                if flags:
+                    Quartz.CGEventSetFlags(ev, flags)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _hover(self, action: MotorAction) -> None:
+        import Quartz
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        ev = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventMouseMoved, (x, y), 0)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _activate(self, action: MotorAction) -> None:
+        from AppKit import NSWorkspace
+        p = action.params
+        for app in NSWorkspace.sharedWorkspace().runningApplications():
+            if (p.get("bundle") and app.bundleIdentifier() == p["bundle"]) or \
+               (p.get("title") and app.localizedName() == p["title"]) or \
+               (p.get("pid") and int(app.processIdentifier()) == p["pid"]):
+                app.activateWithOptions_(1 << 1)  # NSApplicationActivateIgnoringOtherApps
+                return
+        raise RuntimeError(f"No app matching {p}")
+
     def _click(self, action: MotorAction) -> None:
         import Quartz
-
-        x = action.params.get("x", action.target.x)
-        y = action.params.get("y", action.target.y)
-        for down, up in [(Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp)]:
-            ev_down = Quartz.CGEventCreateMouseEvent(None, down, (x, y), Quartz.kCGMouseButtonLeft)
-            ev_up = Quartz.CGEventCreateMouseEvent(None, up, (x, y), Quartz.kCGMouseButtonLeft)
-            Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev_down)
-            Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev_up)
+        from .keys import modifier_mask
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        button = action.params.get("button", "left")
+        count = int(action.params.get("count", 1))
+        flags = modifier_mask(action.params.get("modifiers", []))
+        down_t, up_t, btn = {
+            "left": (Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp, Quartz.kCGMouseButtonLeft),
+            "right": (Quartz.kCGEventRightMouseDown, Quartz.kCGEventRightMouseUp, Quartz.kCGMouseButtonRight),
+            "middle": (Quartz.kCGEventOtherMouseDown, Quartz.kCGEventOtherMouseUp, Quartz.kCGMouseButtonCenter),
+        }[button]
+        for i in range(count):
+            for et in (down_t, up_t):
+                ev = Quartz.CGEventCreateMouseEvent(None, et, (x, y), btn)
+                if flags:
+                    Quartz.CGEventSetFlags(ev, flags)
+                if count > 1:
+                    Quartz.CGEventSetIntegerValueField(ev, Quartz.kCGMouseEventClickState, i + 1)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
 
     def _type(self, action: MotorAction) -> None:
         import Quartz
