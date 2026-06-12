@@ -40,8 +40,14 @@ class ConsentManager:
         except (ValueError, OSError):
             return False
 
+    def _last_ledger_event(self) -> str | None:
+        records = self._ledger._records()  # reuse the ledger's parser
+        return records[-1].get("event") if records else None
+
     def current_ceiling(self) -> Level:
-        return Level.AUTONOMOUS if self._engaged() else self._config_ceiling
+        if self._engaged() and self._last_ledger_event() == "engage_l4":
+            return Level.AUTONOMOUS
+        return self._config_ceiling
 
     def engage(self, typed: str, *, ts: str) -> bool:
         if typed.strip() != self._engagement_phrase:

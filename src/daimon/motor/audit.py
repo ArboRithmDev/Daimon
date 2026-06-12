@@ -37,12 +37,17 @@ class AppendOnlyLedger:
         return hashlib.sha256((prev + canonical).encode("utf-8")).hexdigest()
 
     def append(self, entry: dict) -> str:
+        import fcntl
         prev = self._last_hash()
         body = {**entry, "prev_hash": prev}
         h = self._compute(prev, body)
         record = {**body, "hash": h}
         with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         return h
 
     def verify(self) -> bool:
