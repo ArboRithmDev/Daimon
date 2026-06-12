@@ -40,6 +40,10 @@ class MacOSActuator:
             "key": self._key,
             "hover": self._hover,
             "activate": self._activate,
+            "mouse_down": self._mouse_down,
+            "mouse_up": self._mouse_up,
+            "key_down": self._key_down,
+            "key_up": self._key_up,
         }.get(action.name)
         if handler is None:
             raise ValueError(f"unknown action: {action.name}")
@@ -142,3 +146,30 @@ class MacOSActuator:
         if dy:
             ev = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitPixel, 1, dy)
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _mouse_down(self, action: MotorAction) -> None:
+        import Quartz
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        ev = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, (x, y), Quartz.kCGMouseButtonLeft)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _mouse_up(self, action: MotorAction) -> None:
+        import Quartz
+        x = action.params.get("x", action.target.x); y = action.params.get("y", action.target.y)
+        ev = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, (x, y), Quartz.kCGMouseButtonLeft)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _key_down(self, action: MotorAction) -> None:
+        import Quartz
+        from .keys import keycode_for, modifier_mask
+        ev = Quartz.CGEventCreateKeyboardEvent(None, keycode_for(action.params["key"]), True)
+        flags = modifier_mask(action.params.get("modifiers", []))
+        if flags:
+            Quartz.CGEventSetFlags(ev, flags)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+
+    def _key_up(self, action: MotorAction) -> None:
+        import Quartz
+        from .keys import keycode_for
+        ev = Quartz.CGEventCreateKeyboardEvent(None, keycode_for(action.params["key"]), False)
+        Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)

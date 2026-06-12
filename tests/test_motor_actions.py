@@ -14,6 +14,7 @@ def test_registry_is_complete():
     assert set(ACTIONS) == {
         "main_navigate", "main_click", "main_type", "main_drag", "main_press",
         "main_key", "main_hover", "main_activate",
+        "main_mouse_down", "main_mouse_up", "main_key_down", "main_key_up",
     }
 
 
