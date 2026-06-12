@@ -84,10 +84,23 @@ def _cgimage_to_pil(image_ref):
     return img.convert("RGB")
 
 
-def capture_display(display_index: int = 0, max_width: int | None = 1600) -> Frame:
+def crop_region(image, region: dict | None):
+    """Crop a PIL image to {x,y,width,height}, clamped to the image. Pure."""
+    if not region:
+        return image
+    x = max(0, int(region["x"])); y = max(0, int(region["y"]))
+    right = min(image.width, x + int(region["width"]))
+    bottom = min(image.height, y + int(region["height"]))
+    return image.crop((x, y, right, bottom))
+
+
+def capture_display(display_index: int = 0, max_width: int | None = 720,
+                    region: dict | None = None) -> Frame:
     """Capture one active display by index, optionally downscaled to `max_width`.
 
     `display_index` indexes `list_displays()`; 0 is the first active display.
+    `region` is an optional {x, y, width, height} dict to capture a sub-region;
+    cropping happens before downscaling.
     Downscaling keeps payloads small for the ~1-2 fps ambient use case and
     spares the client's vision budget.
     """
@@ -109,6 +122,7 @@ def capture_display(display_index: int = 0, max_width: int | None = 1600) -> Fra
         )
 
     img = _cgimage_to_pil(image_ref)
+    img = crop_region(img, region)
     if max_width and img.width > max_width:
         ratio = max_width / img.width
         img = img.resize((max_width, int(img.height * ratio)))
