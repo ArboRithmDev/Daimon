@@ -57,6 +57,19 @@ Daimon can act under a ceiling it enforces itself (default **L0**, hands off):
   recorded in an append-only, hash-chained ledger under `logs/`. `no-log = no-act`.
 - Set the ceiling in `config/motor.yaml` (copy `config/motor.example.yaml`).
 - Kill the process at any time to stop everything — the physical override always wins.
+- **Acts on the *observed* target.** Before acting, Daimon re-probes the real
+  element under the coordinates (the AI's role/label are advisory). A lying
+  agent cannot dodge the gate by mislabelling a button; an unverifiable target
+  gates below L4 and is refused under L4 (no blind autonomous action).
+- **Secret content never leaves.** Secret-role fields (`AXSecureTextField`) and
+  declared secret apps are value-blanked in Touché and blacked out in Vue.
+- **Region-aware refusal.** Actions whose target falls in an excluded screen
+  region are refused, even under L4.
+- **Durable consent.** The L4 consent ledger is `flock`-guarded and hash-chained;
+  the active ceiling requires the state file *and* the ledger tail to agree, so a
+  forged state file cannot silently escalate to L4.
+- **Held-input primitives** (`main_mouse_down/up`, `main_key_down/up`) are L4-only
+  and auto-released by a watchdog if an `up` never arrives.
 
 ## Layout
 
