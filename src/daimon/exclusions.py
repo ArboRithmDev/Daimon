@@ -100,3 +100,20 @@ class ExclusionFilter:
             return kept
 
         return walk(nodes)
+
+
+def _image_draw(image):
+    from PIL import ImageDraw
+    return ImageDraw.Draw(image)
+
+
+def black_out_rects(image, rects):
+    """Fill each {x,y,width,height} rect with black on a PIL image. Pure-ish
+    (PIL import isolated in _image_draw for testability)."""
+    if not rects:
+        return image
+    draw = _image_draw(image)
+    for r in rects:
+        x, y = int(r["x"]), int(r["y"])
+        draw.rectangle((x, y, x + int(r["width"]), y + int(r["height"])), fill="black")
+    return image
