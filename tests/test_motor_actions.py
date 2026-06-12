@@ -18,6 +18,14 @@ def test_registry_is_complete():
     }
 
 
+def test_primitives_are_autonomous():
+    """actions.py is the single source of truth for primitive levels (N1)."""
+    assert level_for("main_mouse_down") == Level.AUTONOMOUS
+    assert level_for("main_mouse_up") == Level.AUTONOMOUS
+    assert level_for("main_key_down") == Level.AUTONOMOUS
+    assert level_for("main_key_up") == Level.AUTONOMOUS
+
+
 def test_unknown_verb_raises():
     import pytest
     with pytest.raises(KeyError):

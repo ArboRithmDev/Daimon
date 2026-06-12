@@ -27,6 +27,15 @@ def test_is_target_secret_by_role_and_app():
     assert not f.is_target_secret(role="AXButton", bundle_id="com.x.safe")
 
 
+def test_secret_role_empty_value_is_blanked():
+    """N3: empty-string secret value must also be replaced with the block character."""
+    f = _f(secret_roles=("AXSecureTextField",))
+    tree = {"role": "AXSecureTextField", "title": None, "value": ""}
+    out = f.redact_nodes([tree])[0]
+    assert out["value"] == "█"
+    assert out.get("redacted") is True
+
+
 def test_title_excluded_node_still_dropped():
     # existing behaviour preserved
     f = _f(window_titles=(r"(?i)password",))

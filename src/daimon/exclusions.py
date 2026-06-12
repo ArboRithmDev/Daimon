@@ -101,7 +101,7 @@ class ExclusionFilter:
                     continue
                 node = dict(node)
                 if node.get("role") in self._secret_roles:
-                    node["value"] = "█" if node.get("value") else node.get("value")
+                    node["value"] = "█"
                     node["redacted"] = True
                 children = node.get("children")
                 if children:

@@ -13,7 +13,7 @@ from typing import Protocol
 from .types import MotorAction, Target
 
 # Actions whose target must be verified before acting.
-_COORD_ACTIONS = {"click", "press", "drag", "hover"}
+_COORD_ACTIONS = {"click", "press", "drag", "hover", "mouse_down", "mouse_up"}
 _FOCUS_ACTIONS = {"type", "key"}
 
 
