@@ -24,6 +24,9 @@ ACTIONS: dict[str, ActionDef] = {
     "main_type": ActionDef("main_type", Level.INPUT, "type text"),
     "main_drag": ActionDef("main_drag", Level.INPUT, "drag/trace"),
     "main_press": ActionDef("main_press", Level.VALIDATION, "activate an engaging button"),
+    "main_key": ActionDef("main_key", Level.INPUT, "discrete key / chord"),
+    "main_hover": ActionDef("main_hover", Level.NONDESTRUCTIVE, "move pointer only"),
+    "main_activate": ActionDef("main_activate", Level.NONDESTRUCTIVE, "bring app/window frontmost"),
 }
 
 

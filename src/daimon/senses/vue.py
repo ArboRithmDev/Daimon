@@ -50,12 +50,16 @@ class Vue(Sense):
             description=(
                 "Capture one macOS display and return it as an image. Read-only "
                 "ambient perception. `display` indexes vue_displays (default 0). "
+                "Default max_width is 720; pass a larger value for fine detail. "
+                "`region={x,y,width,height}` restricts capture to a sub-region "
+                "(pixel coords, clamped to display bounds). "
                 "Excluded apps/regions are filtered out before the image is "
                 "returned. Daimon does not interpret the image; look at it yourself."
             ),
         )
-        def vue_snapshot(display: int = 0, max_width: int = 1600) -> MCPImage:
-            frame = screen.capture_display(display_index=display, max_width=max_width)
+        def vue_snapshot(display: int = 0, max_width: int = 720,
+                         region: dict | None = None) -> MCPImage:
+            frame = screen.capture_display(display_index=display, max_width=max_width, region=region)
 
             gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
             if gate.refused:

@@ -39,13 +39,20 @@ def classify(action: MotorAction) -> Reversibility:
     if text and _DANGER_TEXT.search(text):
         return Reversibility(True, f"target matches non-return verb: {text!r}")
 
-    keys = action.params.get("keys")
+    keys = action.params.get("keys") or action.params.get("keystr")
+    if not keys and action.params.get("key"):
+        # Build the combo defensively so a directly-constructed key action can't
+        # skip the danger check by omitting keystr.
+        mods = action.params.get("modifiers") or []
+        keys = "+".join([*mods, action.params["key"]])
     if keys and _DANGER_KEYS.search(keys):
         return Reversibility(True, f"dangerous key combo: {keys}")
 
     # Fail-safe: an unidentified target at INPUT level or above is treated as risky.
+    # Key actions are exempt: they target the keyboard, not a UI element.
     identified = bool(action.target.role or action.target.label)
-    if action.level >= Level.INPUT and not identified:
+    is_key_action = bool(action.params.get("key") or action.params.get("keys") or action.params.get("keystr"))
+    if action.level >= Level.INPUT and not identified and not is_key_action:
         return Reversibility(True, "unidentified target at input level (fail-safe)")
 
     return Reversibility(False, "no non-return signal")

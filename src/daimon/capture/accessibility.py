@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import Any
 
-# Safety caps so a pathological UI can't produce an unbounded tree.
-_MAX_DEPTH = 12
-_MAX_NODES = 600
+from .treeshape import shape_tree, to_summary_lines
+
+_DEFAULT_MAX_DEPTH = 4
 
 
 def is_trusted() -> bool:
@@ -94,26 +94,72 @@ def node_from_element(element, *, with_geometry: bool = True) -> dict:
     return node
 
 
-def _walk(element, depth: int, counter: list[int]) -> dict:
-    from ApplicationServices import kAXChildrenAttribute
+def _raw_tree(root, max_nodes: int) -> dict:
+    """Walk the AX tree into plain dicts, capped only by node count (depth/role
+    shaping happens later in treeshape, which is pure and testable)."""
+    counter = [0]
 
-    node = node_from_element(element)
-    counter[0] += 1
-
-    if depth >= _MAX_DEPTH or counter[0] >= _MAX_NODES:
-        node["children_truncated"] = True
+    def walk(element) -> dict:
+        from ApplicationServices import kAXChildrenAttribute
+        node = node_from_element(element)
+        counter[0] += 1
+        if counter[0] >= max_nodes:
+            node["children_truncated"] = True
+            return node
+        children = _copy_attr(element, kAXChildrenAttribute) or []
+        kids = []
+        for child in children:
+            if counter[0] >= max_nodes:
+                node["children_truncated"] = True
+                break
+            kids.append(walk(child))
+        if kids:
+            node["children"] = kids
         return node
 
-    children = _copy_attr(element, kAXChildrenAttribute) or []
-    child_nodes = []
-    for child in children:
-        if counter[0] >= _MAX_NODES:
-            node["children_truncated"] = True
-            break
-        child_nodes.append(_walk(child, depth + 1, counter))
-    if child_nodes:
-        node["children"] = child_nodes
-    return node
+    return walk(root)
+
+
+def _window_element(window: dict):
+    """Resolve an AX application element by {pid|bundle|title}."""
+    from AppKit import NSWorkspace
+    from ApplicationServices import AXUIElementCreateApplication, kAXFocusedWindowAttribute
+
+    pid = window.get("pid")
+    if pid is None:
+        apps = NSWorkspace.sharedWorkspace().runningApplications()
+        for app in apps:
+            if window.get("bundle") and app.bundleIdentifier() == window["bundle"]:
+                pid = int(app.processIdentifier()); break
+            if window.get("title") and app.localizedName() == window["title"]:
+                pid = int(app.processIdentifier()); break
+    if pid is None:
+        raise RuntimeError(f"No app matching {window}")
+    app_el = AXUIElementCreateApplication(pid)
+    win = _copy_attr(app_el, kAXFocusedWindowAttribute)
+    return win if win is not None else app_el
+
+
+def _resolve_root(window, root_point):
+    from ApplicationServices import (
+        AXUIElementCopyElementAtPosition, AXUIElementCreateSystemWide,
+        AXUIElementCreateApplication, kAXFocusedWindowAttribute,
+    )
+    if root_point is not None:
+        system = AXUIElementCreateSystemWide()
+        err, el = AXUIElementCopyElementAtPosition(
+            system, float(root_point["x"]), float(root_point["y"]), None)
+        if err != 0 or el is None:
+            raise RuntimeError(f"No element at {root_point}")
+        return el
+    if window is not None:
+        return _window_element(window)
+    pid = _frontmost_pid()
+    if pid is None:
+        raise RuntimeError("No frontmost application.")
+    app_el = AXUIElementCreateApplication(pid)
+    win = _copy_attr(app_el, kAXFocusedWindowAttribute)
+    return win if win is not None else app_el
 
 
 def _frontmost_pid() -> int | None:
@@ -123,21 +169,28 @@ def _frontmost_pid() -> int | None:
     return int(app.processIdentifier()) if app else None
 
 
-def snapshot_tree() -> dict:
-    """Touché passif: tree of the frontmost app's focused window."""
-    from ApplicationServices import (
-        AXUIElementCreateApplication,
-        kAXFocusedWindowAttribute,
+def snapshot_tree(
+    *,
+    max_depth: int = _DEFAULT_MAX_DEPTH,
+    root: dict | None = None,
+    roles: list[str] | None = None,
+    prune_empty: bool = True,
+    summary: bool = False,
+    window: dict | None = None,
+    max_nodes: int = 600,
+    max_value_chars: int = 200,
+) -> dict:
+    """Touché passif, bounded. `root`={x,y} dumps a subtree; `window`=
+    {pid|bundle|title} targets a specific app instead of the frontmost."""
+    root_el = _resolve_root(window, root)
+    raw = _raw_tree(root_el, max_nodes)
+    shaped = shape_tree(
+        raw, max_depth=max_depth, roles=roles,
+        prune_empty=prune_empty, max_value_chars=max_value_chars,
     )
-
-    pid = _frontmost_pid()
-    if pid is None:
-        raise RuntimeError("No frontmost application.")
-
-    app_el = AXUIElementCreateApplication(pid)
-    window = _copy_attr(app_el, kAXFocusedWindowAttribute)
-    root = window if window is not None else app_el
-    return _walk(root, depth=0, counter=[0])
+    if summary:
+        return {"summary": "\n".join(to_summary_lines(shaped))}
+    return shaped
 
 
 def element_at(x: int, y: int) -> dict:

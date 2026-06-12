@@ -28,19 +28,20 @@ def _register_motor(mcp) -> None:
     @mcp.tool(
         name="main_click",
         description=(
-            "Click an element/coordinate. Provide the target's role/label (from "
-            "Touché) so Daimon can verify reversibility. `reversible` and `intent` "
-            "are your declaration; Daimon enforces the ceiling and may require human "
-            "confirmation. Refused if above the configured ceiling."
+            "Click an element/coordinate. button=left|right|middle, count=1|2 "
+            "(double-click), modifiers=[cmd,shift,opt,ctrl]. Provide role/label "
+            "(from Touché) so Daimon can verify reversibility. Refused above the ceiling."
         ),
     )
     def main_click(x: int, y: int, intent: str, reversible: bool = True,
+                   button: str = "left", count: int = 1, modifiers: list[str] | None = None,
                    role: str = "", label: str = "") -> dict:
         return organ.act(MotorAction(
             name="click", level=level_for("main_click"),
             target=_target(x, y, role or None, label or None),
             declaration=Declaration(reversible=reversible, intent=intent),
-            params={"x": x, "y": y},
+            params={"x": x, "y": y, "button": button, "count": count,
+                    "modifiers": modifiers or []},
         ))
 
     @mcp.tool(
@@ -83,6 +84,33 @@ def _register_motor(mcp) -> None:
             declaration=Declaration(reversible=True, intent=intent),
             params={"scroll_y": scroll_y},
         ))
+
+    @mcp.tool(name="main_key", description=(
+        "Send a discrete key or chord (Return/Tab/Esc/arrows/F-keys or e.g. "
+        "cmd+shift+r). Distinct from main_type (text). Dangerous combos require "
+        "confirmation."))
+    def main_key(key: str, intent: str, modifiers: list[str] | None = None,
+                 count: int = 1, reversible: bool = True) -> dict:
+        mods = modifiers or []
+        keystr = "+".join([*mods, key])
+        return organ.act(MotorAction(
+            name="key", level=level_for("main_key"), target=Target(),
+            declaration=Declaration(reversible=reversible, intent=intent),
+            params={"key": key, "modifiers": mods, "count": count, "keystr": keystr},
+        ))
+
+    @mcp.tool(name="main_hover", description="Move the pointer to (x,y) without clicking (reveal tooltips/menus).")
+    def main_hover(x: int, y: int, intent: str) -> dict:
+        return organ.act(MotorAction(
+            name="hover", level=level_for("main_hover"), target=_target(x, y, None, None),
+            declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
+
+    @mcp.tool(name="main_activate", description="Bring an app/window frontmost by bundle id, title, or pid.")
+    def main_activate(intent: str, bundle: str = "", title: str = "", pid: int = 0) -> dict:
+        params = {k: v for k, v in (("bundle", bundle), ("title", title), ("pid", pid)) if v}
+        return organ.act(MotorAction(
+            name="activate", level=level_for("main_activate"), target=Target(),
+            declaration=Declaration(reversible=True, intent=intent), params=params))
 
 
 def build_server() -> FastMCP:

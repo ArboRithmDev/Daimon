@@ -31,15 +31,31 @@ class Touche(Sense):
         @mcp.tool(
             name="touche_tree",
             description=(
-                "Touché passif: accessibility tree of the frontmost window for "
-                "structural understanding. Read-only. Returns nested nodes "
-                "{role, title, value, position, size, children}."
+                "Touché passif: bounded accessibility tree. Defaults are bounded "
+                "for cost — pass a bigger max_depth or full structure only when "
+                "needed. `root={x,y}` dumps just the subtree under a point. "
+                "`window={pid|bundle|title}` targets a specific app instead of the "
+                "frontmost (fixes null-root when focus moves). `roles=[...]` keeps "
+                "only those roles. `summary=true` returns a compact one-line-per-node "
+                "text. Read-only."
             ),
         )
-        def touche_tree() -> dict:
+        def touche_tree(
+            max_depth: int = 4,
+            root: dict | None = None,
+            roles: list[str] | None = None,
+            prune_empty: bool = True,
+            summary: bool = False,
+            window: dict | None = None,
+        ) -> dict:
             if not ax.is_trusted():
                 return {"error": "accessibility_permission_denied", "hint": _PERMISSION_HINT}
-            tree = ax.snapshot_tree()
+            tree = ax.snapshot_tree(
+                max_depth=max_depth, root=root, roles=roles,
+                prune_empty=prune_empty, summary=summary, window=window,
+            )
+            if summary:
+                return tree  # already {"summary": "..."} — no node redaction needed
             return self._exclusions.redact_nodes([tree])[0]
 
         @mcp.tool(
