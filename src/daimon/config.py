@@ -14,12 +14,14 @@ from pathlib import Path
 
 import yaml
 
+from .userdata import config_dir
+
 # Resolution order for the exclusion config:
 #   1. $DAIMON_CONFIG (explicit override)
-#   2. ./config/exclusions.yaml (local, git-ignored, holds real secrets)
-#   3. ./config/exclusions.example.yaml (committed default, empty filter)
+#   2. <user data>/config/exclusions.yaml (writable; shared across processes)
+#   3. ./config/exclusions.example.yaml (committed template, empty filter)
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_CONFIG = _REPO_ROOT / "config" / "exclusions.yaml"
+_DEFAULT_CONFIG = config_dir() / "exclusions.yaml"
 _EXAMPLE_CONFIG = _REPO_ROOT / "config" / "exclusions.example.yaml"
 
 
@@ -94,7 +96,7 @@ def load_config(path: Path | None = None) -> Config:
 # --- motor config ---------------------------------------------------------
 from .motor.types import Level  # noqa: E402  (kept near its use)
 
-_MOTOR_DEFAULT = _REPO_ROOT / "config" / "motor.yaml"
+_MOTOR_DEFAULT = config_dir() / "motor.yaml"
 _MOTOR_EXAMPLE = _REPO_ROOT / "config" / "motor.example.yaml"
 
 _DEFAULT_ENGAGE = "I ENGAGE DAIMON L4 AUTONOMY ON THIS MACHINE"
@@ -148,7 +150,7 @@ def load_motor_config(path: Path | None = None) -> MotorConfig:
 
 
 # --- overlay config -------------------------------------------------------
-_OVERLAY_DEFAULT = _REPO_ROOT / "config" / "overlay.yaml"
+_OVERLAY_DEFAULT = config_dir() / "overlay.yaml"
 _OVERLAY_EXAMPLE = _REPO_ROOT / "config" / "overlay.example.yaml"
 
 

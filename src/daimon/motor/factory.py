@@ -19,9 +19,10 @@ from .gate import MacOSGate
 from .guard import PolicyGuard
 from .organ import MotorOrgan
 from .probe import MacOSProber
+from ..userdata import config_dir, logs_dir
 
-_LOGS = Path(__file__).resolve().parents[3] / "logs"
-_STATE = Path(__file__).resolve().parents[3] / "config" / "motor.state.json"
+_LOGS = logs_dir()
+_STATE = config_dir() / "motor.state.json"
 
 
 def _now() -> str:
@@ -30,7 +31,8 @@ def _now() -> str:
 
 def build_consent() -> ConsentManager:
     mcfg = load_motor_config()
-    _LOGS.mkdir(exist_ok=True)
+    _LOGS.mkdir(parents=True, exist_ok=True)
+    _STATE.parent.mkdir(parents=True, exist_ok=True)
     return ConsentManager(
         config_ceiling=mcfg.ceiling,
         engagement_phrase=mcfg.engagement_phrase,
@@ -44,7 +46,7 @@ def build_organ() -> MotorOrgan:
     consent = build_consent()
     exclusions = ExclusionFilter(load_exclusions().exclusions)
     guard = PolicyGuard(exclusions, ceiling_provider=consent.current_ceiling)
-    _LOGS.mkdir(exist_ok=True)
+    _LOGS.mkdir(parents=True, exist_ok=True)
     ocfg = load_overlay_config()
     if ocfg.enabled:
         launcher.ensure_running()
