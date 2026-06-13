@@ -145,3 +145,34 @@ def load_motor_config(path: Path | None = None) -> MotorConfig:
         engagement_phrase=l4.get("engagement_phrase", _DEFAULT_ENGAGE),
         disengagement_phrase=l4.get("disengagement_phrase", _DEFAULT_DISENGAGE),
     )
+
+
+# --- overlay config -------------------------------------------------------
+_OVERLAY_DEFAULT = _REPO_ROOT / "config" / "overlay.yaml"
+_OVERLAY_EXAMPLE = _REPO_ROOT / "config" / "overlay.example.yaml"
+
+
+@dataclass(frozen=True)
+class OverlayConfig:
+    enabled: bool = False
+    opacity: float = 0.95
+    anti_feedback: bool = True   # exclude the overlay from screen capture
+
+
+def _overlay_path() -> Path:
+    env = os.environ.get("DAIMON_OVERLAY_CONFIG")
+    if env:
+        return Path(env).expanduser()
+    return _OVERLAY_DEFAULT if _OVERLAY_DEFAULT.exists() else _OVERLAY_EXAMPLE
+
+
+def load_overlay_config(path: Path | None = None) -> OverlayConfig:
+    path = path or _overlay_path()
+    if not path.exists():
+        return OverlayConfig()
+    raw = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("overlay", {}) or {}
+    return OverlayConfig(
+        enabled=bool(raw.get("enabled", False)),
+        opacity=float(raw.get("opacity", 0.95)),
+        anti_feedback=bool(raw.get("anti_feedback", True)),
+    )
