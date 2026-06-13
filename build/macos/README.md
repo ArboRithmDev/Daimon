@@ -6,17 +6,21 @@ there is no separate engine / offline-wheels staging.
 
 ## What the `.app` is
 
-`Daimon.app` is the **onboarding launcher**. Double-clicking it runs the
-windowed setup GUI, which registers Daimon into detected AI clients and guides
-the macOS permission grants. The bundle ships **two** executables:
+`Daimon.app` ships **one** executable (`Contents/MacOS/Daimon`) that dispatches
+on its arguments (PyInstaller does not cleanly support two executables in one
+bundle):
 
-| Executable | Role |
-|-----------|------|
-| `Daimon` (`CFBundleExecutable`) | the onboarding GUI a user double-clicks |
-| `Contents/MacOS/daimon` | the MCP stdio server / CLI — what AI clients launch |
+| Invocation | Behaviour |
+|-----------|-----------|
+| double-click from Finder (no args, frozen) | onboarding GUI — registers Daimon into detected AI clients + guides permissions |
+| `Daimon serve` | the MCP stdio server — what AI clients launch |
+| `Daimon setup/install/uninstall/status/onboard` | the setup CLI |
+| `Daimon --gui` | the onboarding GUI |
 
-`invocation.py` registers clients against `…/Daimon.app/Contents/MacOS/daimon`
-once the app is in `/Applications`.
+`invocation.py` registers clients against
+`…/Daimon.app/Contents/MacOS/Daimon serve` once the app is in `/Applications`.
+`console=False` means no Terminal opens on double-click; stdio still works when
+a client spawns `Daimon serve` with inherited pipes.
 
 ## Prerequisites
 
