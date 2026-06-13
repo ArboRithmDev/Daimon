@@ -120,7 +120,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleDevelopmentRegion": "en",
             "CFBundleDisplayName": "Daimon",
-            "CFBundleExecutable": "Daimon",          # dispatcher: GUI on double-click, server on `serve`
+            "CFBundleExecutable": "Daimon",          # dispatcher: menu-bar tray on double-click, server on `serve`
             "CFBundleIdentifier": bundle_id,
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "Daimon",
