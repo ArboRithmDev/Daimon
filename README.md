@@ -90,6 +90,23 @@ just polish).
   `overlay_clear`.
 - Enable via `config/overlay.yaml` (copy `config/overlay.example.yaml`); off by default.
 
+## Setup (install + onboarding)
+
+One command gets a new user running — no manual config editing:
+
+```bash
+daimon setup       # register Daimon into detected AI clients, then guide macOS permissions
+```
+
+- `daimon install [--all]` / `daimon uninstall` — register/remove Daimon in each
+  detected client's MCP config (Claude Code, Claude Desktop, Cursor, Windsurf).
+  Idempotent, reversible, and every write is backed up; a malformed client config
+  is refused, never overwritten.
+- `daimon status` — show where Daimon is registered.
+- `daimon onboard` — guide the macOS permission grants (Screen Recording,
+  Accessibility) with live verification. GUI version: `python -m daimon.onboard --gui`.
+- `daimon` with no arguments is still the MCP server (what clients launch).
+
 ## Layout
 
 ```
