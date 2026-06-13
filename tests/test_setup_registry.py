@@ -5,7 +5,19 @@ from daimon.setup.clients.registry import adapters_for_home, detected
 def test_adapters_cover_known_clients():
     home = Path("/Users/test")
     names = {a.name for a in adapters_for_home(home)}
-    assert {"Claude Code", "Claude Desktop", "Cursor", "Windsurf"} <= names
+    assert {"Claude Code", "Claude Desktop", "Cursor", "Windsurf",
+            "GitHub Copilot CLI", "Antigravity Desktop", "Antigravity IDE",
+            "Antigravity CLI", "Codex", "Mistral Vibe"} <= names
+
+
+def test_new_clients_have_correct_format():
+    home = Path("/Users/test")
+    by = {a.name: a for a in adapters_for_home(home)}
+    assert by["Codex"].fmt == "toml-table"
+    assert str(by["Codex"].config_path).endswith(".codex/config.toml")
+    assert by["Mistral Vibe"].fmt == "toml-array"
+    assert by["GitHub Copilot CLI"].fmt == "json"
+    assert "antigravity/mcp_config.json" in str(by["Antigravity Desktop"].config_path)
 
 
 def test_paths_are_under_home():
