@@ -14,8 +14,32 @@ def test_subcommand_routes_to_cli(monkeypatch):
     assert calls["argv"] == ["status"] and code == 0
 
 
-def test_no_arg_runs_server(monkeypatch):
+def test_no_arg_runs_server_from_source(monkeypatch):
+    # Not frozen (running from source): no-arg starts the MCP server.
     ran = {}
     monkeypatch.setattr("daimon.server.main", lambda: ran.setdefault("server", True))
     m.main([])
     assert ran.get("server") is True
+
+
+def test_serve_runs_server(monkeypatch):
+    ran = {}
+    monkeypatch.setattr("daimon.server.main", lambda: ran.setdefault("server", True))
+    assert m.main(["serve"]) == 0
+    assert ran.get("server") is True
+
+
+def test_no_arg_frozen_runs_gui(monkeypatch):
+    # A frozen .app double-clicked from Finder shows the onboarding GUI.
+    monkeypatch.setattr(m.sys, "frozen", True, raising=False)
+    ran = {}
+    monkeypatch.setattr("daimon.setup.gui.__main__.main", lambda: ran.setdefault("gui", True) or 0)
+    m.main([])
+    assert ran.get("gui") is True
+
+
+def test_gui_flag_runs_gui(monkeypatch):
+    ran = {}
+    monkeypatch.setattr("daimon.setup.gui.__main__.main", lambda: ran.setdefault("gui", True) or 0)
+    m.main(["--gui"])
+    assert ran.get("gui") is True

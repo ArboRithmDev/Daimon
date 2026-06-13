@@ -85,28 +85,17 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# CLI / server dispatcher (what MCP clients invoke).
-exe_cli = EXE(
+# ONE executable. The entry is daimon/__main__.py, which dispatches on argv:
+#   no-arg (frozen .app double-click) → onboarding GUI
+#   `serve`                           → MCP stdio server (what clients invoke)
+#   setup subcommands                 → setup CLI
+# PyInstaller does not cleanly support two executables in one .app bundle, so a
+# single dispatching binary is both simpler and what actually works.
+#
+# console=False (windowed) → no Terminal on double-click. stdio still works when
+# an MCP client spawns `Daimon serve` with inherited pipes.
+exe = EXE(
     pyz, a.scripts, [],
-    exclude_binaries=True,
-    name="daimon",
-    debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
-    console=True, disable_windowed_traceback=False,
-    target_arch=None, codesign_identity=None, entitlements_file=None,
-    icon=icon_arg,
-)
-
-# Windowed onboarding GUI (the app a user double-clicks). Separate entry script.
-gui_scripts = Analysis(
-    [str(src_root / "daimon" / "setup" / "gui" / "__main__.py")],
-    pathex=[str(src_root)],
-    binaries=[], datas=[], hiddenimports=hidden_imports,
-    hookspath=[], hooksconfig={}, runtime_hooks=[],
-    excludes=["test", "tests", "pytest", "_pytest", "ruff", "setuptools"],
-    cipher=block_cipher, noarchive=False,
-).scripts
-exe_gui = EXE(
-    pyz, gui_scripts, [],
     exclude_binaries=True,
     name="Daimon",
     debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
@@ -116,7 +105,7 @@ exe_gui = EXE(
 )
 
 coll = COLLECT(
-    exe_cli, exe_gui,
+    exe,
     a.binaries, a.zipfiles, a.datas,
     strip=False, upx=False, upx_exclude=[],
     name="Daimon",
@@ -131,7 +120,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleDevelopmentRegion": "en",
             "CFBundleDisplayName": "Daimon",
-            "CFBundleExecutable": "Daimon",          # the onboarding GUI
+            "CFBundleExecutable": "Daimon",          # dispatcher: GUI on double-click, server on `serve`
             "CFBundleIdentifier": bundle_id,
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "Daimon",
