@@ -71,6 +71,25 @@ Daimon can act under a ceiling it enforces itself (default **L0**, hands off):
 - **Held-input primitives** (`main_mouse_down/up`, `main_key_down/up`) are L4-only
   and auto-released by a watchdog if an `up` never arrives.
 
+## The face (overlay)
+
+The third organ — *show*. A premium, click-through overlay makes the agent
+legible: it highlights the element being targeted, ripples where it clicks, and
+**emphasises the exact element you confirm at the gate** (a security win, not
+just polish).
+
+- Runs as a separate helper process: `python -m daimon.overlay.app`. The MCP
+  server drives it over a local socket; it is **never on an action's critical
+  path** (if it's absent or fails, actions proceed unchanged).
+- **Click-through** (never intercepts input) and **capture-invisible**
+  (`anti_feedback` keeps it out of `vue_snapshot`, so Daimon never films itself).
+- **Secret-safe**: labels are redacted the same way the senses are — a secret
+  field shows `🔒 protégé`, never its value.
+- Auto-shows what the motor does; the agent can also drive it explicitly with
+  `overlay_highlight`, `overlay_spotlight`, `overlay_cursor`, `overlay_banner`,
+  `overlay_clear`.
+- Enable via `config/overlay.yaml` (copy `config/overlay.example.yaml`); off by default.
+
 ## Layout
 
 ```
