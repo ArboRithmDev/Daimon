@@ -5,7 +5,7 @@ Behaviours:
   * `daimon setup|install|uninstall|status|onboard` → setup CLI
   * `daimon --gui`                                  → onboarding GUI
   * `daimon` (no args):
-      - inside a frozen .app (double-clicked from Finder) → onboarding GUI
+      - inside a frozen .app (double-clicked from Finder) → resident menu-bar tray
       - from source (`python -m daimon`)                 → MCP server (back-compat)
 
 A single executable keeps the macOS .app bundle simple (PyInstaller does not
@@ -31,6 +31,11 @@ def _run_gui() -> int:
     return gui_main()
 
 
+def _run_tray() -> int:
+    from .tray.app.__main__ import main as tray_main
+    return tray_main()
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
@@ -42,10 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     if argv and "--gui" in argv:
         return _run_gui()
     if not argv:
-        # Frozen .app launched from Finder → show the onboarding GUI.
+        # Frozen .app launched from Finder → start the resident menu-bar tray.
         # Source `python -m daimon` with no args → start the server (back-compat).
         if getattr(sys, "frozen", False):
-            return _run_gui()
+            return _run_tray()
         return _run_server()
     # Any other args → server (back-compat: clients historically passed none).
     return _run_server()
