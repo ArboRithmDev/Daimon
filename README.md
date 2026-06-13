@@ -80,8 +80,8 @@ Daimon is built so an AI can act on your machine *safely*:
 
 1. Download `Daimon-<version>.dmg` from the [latest release](../../releases/latest).
 2. Open it and drag **Daimon** to **Applications**.
-3. Launch **Daimon** — a **δ** icon appears in the menu bar (no Dock icon).
-   First run opens the onboarding window.
+3. Launch **Daimon** — the **aperture** glyph appears in the menu bar (no Dock
+   icon). First run opens the onboarding window.
 4. **Register your AI clients** (one click) and **grant** Screen Recording +
    Accessibility when guided.
 5. Restart your AI client. It now has `vue_*`, `touche_*`, `main_*`, `overlay_*`.

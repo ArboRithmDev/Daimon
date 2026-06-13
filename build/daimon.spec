@@ -62,6 +62,14 @@ for pkg in (
     collected_binaries.extend(binaries)
     hidden_imports.extend(hidden)
 
+# Brand assets — the menu-bar template glyph loaded by the tray status item.
+# collect_all("daimon") usually sweeps these, but pin them explicitly so the
+# status-bar icon never silently falls back to the "δ" title.
+_assets = src_root / "daimon" / "assets"
+if _assets.is_dir():
+    for _png in _assets.glob("*.png"):
+        collected_datas.append((str(_png), "daimon/assets"))
+
 hidden_imports.extend(collect_submodules("daimon"))
 # Explicit pyobjc bridges PyInstaller sometimes misses.
 hidden_imports.extend([

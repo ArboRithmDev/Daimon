@@ -27,6 +27,8 @@ config/*.local.yaml
 *.png
 *.jpg
 !docs/**/*.png
+# Brand assets that ship inside the package / bundle are tracked.
+!src/daimon/assets/*.png
 
 config/motor.yaml
 config/motor.state.json

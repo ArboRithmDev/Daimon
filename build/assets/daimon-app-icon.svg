@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" aria-label="Daimon app icon">
+  <defs>
+    <clipPath id="sq"><path d="M256 12 C120 12 12 120 12 256 C12 392 120 500 256 500 C392 500 500 392 500 256 C500 120 392 12 256 12 Z"></path></clipPath>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2333"></stop><stop offset="1" stop-color="#090d15"></stop>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.5" cy="-0.05" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"></stop><stop offset="0.45" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.55" r="0.42">
+      <stop offset="0" stop-color="#27E0B0" stop-opacity="0.42"></stop><stop offset="1" stop-color="#27E0B0" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#39465a"></stop><stop offset="0.55" stop-color="#1c2533"></stop><stop offset="1" stop-color="#0d131d"></stop>
+    </linearGradient>
+    <radialGradient id="pglow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#27E0B0" stop-opacity="0.95"></stop><stop offset="0.45" stop-color="#27E0B0" stop-opacity="0.45"></stop><stop offset="1" stop-color="#27E0B0" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="512" height="512" fill="url(#tile)"></rect>
+    <rect width="512" height="512" fill="url(#glow)"></rect>
+    <rect width="512" height="512" fill="url(#sheen)"></rect>
+    <circle cx="256" cy="256" r="86" fill="url(#pglow)"></circle>
+    <circle cx="256" cy="256" r="202" fill="none" stroke="#3a4658" stroke-width="5" opacity="0.9"></circle>
+    <line x1="256" y1="46" x2="256" y2="20" stroke="#27E0B0" stroke-width="12" stroke-linecap="round"></line><line x1="466" y1="256" x2="492" y2="256" stroke="#27E0B0" stroke-width="12" stroke-linecap="round"></line><line x1="256" y1="466" x2="256" y2="492" stroke="#27E0B0" stroke-width="12" stroke-linecap="round"></line><line x1="46" y1="256" x2="20" y2="256" stroke="#27E0B0" stroke-width="12" stroke-linecap="round"></line>
+    <g stroke="#0a0f17" stroke-width="2.5" stroke-linejoin="round">
+      <path d="M256.00 78.00 A178 178 0 0 1 410.15 167.00 L285.00 192.29 Z" fill="url(#blade)"></path><path d="M410.15 167.00 A178 178 0 0 1 410.15 345.00 L325.67 249.26 Z" fill="url(#blade)"></path><path d="M410.15 345.00 A178 178 0 0 1 256.00 434.00 L296.67 312.97 Z" fill="url(#blade)"></path><path d="M256.00 434.00 A178 178 0 0 1 101.85 345.00 L227.00 319.71 Z" fill="url(#blade)"></path><path d="M101.85 345.00 A178 178 0 0 1 101.85 167.00 L186.33 262.74 Z" fill="url(#blade)"></path><path d="M101.85 167.00 A178 178 0 0 1 256.00 78.00 L215.33 199.03 Z" fill="url(#blade)"></path>
+    </g>
+    <circle cx="256" cy="256" r="46" fill="#05070b"></circle>
+    <circle cx="256" cy="256" r="18" fill="#27E0B0"></circle>
+    <circle cx="250" cy="249" r="6" fill="#eafff7" opacity="0.85"></circle>
+  </g>
+  <path d="M256 12 C120 12 12 120 12 256 C12 392 120 500 256 500 C392 500 500 392 500 256 C500 120 392 12 256 12 Z" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="2"></path>
+</svg>

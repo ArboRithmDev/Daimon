@@ -10,6 +10,8 @@
 #
 # Run on a Mac with:
 #   * Xcode CLT (codesign, iconutil, hdiutil, xcrun, notarytool)
+#   * rsvg-convert for the brand icon (`brew install librsvg`; optional —
+#     make_icon.py falls back to placeholder art without it)
 #   * A Developer ID Application certificate in the login keychain
 #   * notarytool credentials in keychain item "AC_PASSWORD":
 #       xcrun notarytool store-credentials AC_PASSWORD \
@@ -68,7 +70,8 @@ source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel
 pip install -e "$REPO_ROOT[build]"
 
-# 2. Icons → .icns (placeholder art; replace make_icon.py output with final art).
+# 2. Icons → .icns. make_icon.py rasterizes build/assets/daimon-app-icon.svg via
+#    rsvg-convert (Homebrew `librsvg`); falls back to placeholder art if absent.
 python "$BUILD_DIR/make_icon.py" --out "$ICONS_DIR"
 ICONSET_DIR="$ICONS_DIR/Daimon.iconset"
 rm -rf "$ICONSET_DIR"; mkdir -p "$ICONSET_DIR"

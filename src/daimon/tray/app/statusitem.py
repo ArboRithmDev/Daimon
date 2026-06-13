@@ -47,7 +47,7 @@ class StatusItemController:
         # -1 == NSVariableStatusItemLength
         self._status_item = bar.statusItemWithLength_(-1)
         btn = self._status_item.button()
-        if btn is not None:
+        if btn is not None and not self._apply_glyph(btn):
             btn.setTitle_("δ")
 
         self._rebuild_menu()
@@ -56,6 +56,48 @@ class StatusItemController:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _glyph_path():
+        """Path to the bundled menu-bar template glyph (None if missing).
+
+        Resolves relative to the ``daimon`` package, so it works both from
+        source (``src/daimon/assets``) and inside the PyInstaller bundle (the
+        spec collects the assets to ``daimon/assets``).
+        """
+        from pathlib import Path
+
+        # statusitem.py → app → tray → daimon
+        assets = Path(__file__).resolve().parents[2] / "assets"
+        for name in ("menubar-glyph@2x.png", "menubar-glyph.png"):
+            p = assets / name
+            if p.exists():
+                return p
+        return None
+
+    def _apply_glyph(self, btn) -> bool:
+        """Set the brand template glyph on the status button. False if unavailable."""
+        from AppKit import NSImage
+        from Foundation import NSSize
+
+        path = self._glyph_path()
+        if path is None:
+            return False
+        try:
+            img = NSImage.alloc().initWithContentsOfFile_(str(path))
+            if img is None:
+                return False
+            # Logical 18pt; the 36px rep keeps it crisp on Retina. Template =
+            # macOS recolours it to match the menu bar (light/dark, highlight).
+            img.setSize_(NSSize(18, 18))
+            img.setTemplate_(True)
+            btn.setImage_(img)
+            btn.setTitle_("")
+            return True
+        except Exception:
+            from daimon.applog import log_exception
+            log_exception("statusitem/_apply_glyph")
+            return False
 
     def _poll(self) -> None:
         """Rebuild the menu with fresh state, then schedule the next poll."""
