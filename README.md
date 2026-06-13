@@ -90,6 +90,30 @@ just polish).
   `overlay_clear`.
 - Enable via `config/overlay.yaml` (copy `config/overlay.example.yaml`); off by default.
 
+## The menu bar (resident control surface)
+
+Double-clicking `Daimon.app` adds a **"δ" icon to the menu bar** — no Dock
+entry, no window.  The dropdown shows at a glance:
+
+- macOS permission status (Screen Recording, Accessibility) and which AI clients
+  are registered.
+- **Hands ceiling** — set the motor limit to L0 READ / L1 NONDESTRUCTIVE /
+  L2 INPUT / L3 VALIDATION with a single click.  L4 full-autonomy stays
+  consent-gated; it can only be engaged via `python -m daimon.motor.control engage`.
+- **Show overlay** — toggle the click-through highlight layer on or off.
+- **Run setup…** — reopen the onboarding window to re-grant permissions or
+  re-register with a new AI client.
+- **Open config folder / Open logs** — Finder shortcuts.
+- **Quit Daimon** — terminate the tray process.
+
+On the **first launch** (no existing motor or overlay config), the onboarding
+window opens automatically so permissions and clients are configured before the
+tray settles into the menu bar.
+
+The tray and the MCP servers are **separate processes**: they communicate via the
+config files (`config/motor.yaml`, `config/overlay.yaml`) that already exist —
+no IPC bus required.
+
 ## Setup (install + onboarding)
 
 One command gets a new user running — no manual config editing:
