@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Daimon — a local sensory organ on macOS. Exposes screen perception (Vue, Touché) to any AI client over MCP. Agnostic by design; it never calls an AI itself."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "AGPL-3.0-or-later"
 authors = [{ name = "Ben" }]
 dependencies = [
     "mcp>=1.2.0",          # Model Context Protocol server SDK (FastMCP)

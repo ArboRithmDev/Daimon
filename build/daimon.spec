@@ -130,6 +130,6 @@ if sys.platform == "darwin":
             "LSMinimumSystemVersion": bundle_min_os,
             "NSHighResolutionCapable": True,
             "NSPrincipalClass": "NSApplication",
-            "NSHumanReadableCopyright": "© Arborithm — MIT",
+            "NSHumanReadableCopyright": "© Arborithm — AGPL-3.0-or-later",
         },
     )

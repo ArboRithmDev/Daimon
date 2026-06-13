@@ -47,6 +47,6 @@
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
-    <string>© Arborithm — MIT</string>
+    <string>© Arborithm — AGPL-3.0-or-later</string>
 </dict>
 </plist>

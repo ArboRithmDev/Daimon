@@ -1,177 +1,143 @@
 # Daimon
 
-A local **sensory organ** for AI clients on macOS.
+**A local organ that gives any AI eyes, hands, and a face on your Mac.**
 
-Daimon gives any AI — Claude CLI, a desktop AI app, anything that speaks
-[MCP](https://modelcontextprotocol.io) — a perception of your screen. It is an
-*organ*, not a driver:
+Daimon is a local daemon for macOS that lets any MCP-capable AI client — Claude
+Code, Claude Desktop, Cursor, Codex, Copilot CLI, Antigravity, and more —
+**see your screen, act on it, and show you what it's doing.** It speaks the
+standard [Model Context Protocol](https://modelcontextprotocol.io), so it works
+with any client and is tied to none.
 
-- **Pull, not push.** Daimon owns no loop and calls no AI. The AI client
-  connects over MCP and pulls a sense whenever it wants.
-- **Agnostic by construction.** One standard transport (MCP) → no per-AI
-  adapter. Claude is the most capable client today; Daimon plays fair with the
-  rest.
-- **Perception ≠ action, by default.** The senses only report. Acting is a
-  separate organ ("the hands") under a ceiling Daimon enforces itself — off (L0)
-  until a human opts in. See *The hands* below.
-- **Secrets filter from day one.** Excluded apps/windows/regions are removed
-  *before* any sense serves data.
+It is an *organ*, not a driver: **pull, not push.** Daimon owns no loop and
+**calls no AI** — the client connects over MCP and pulls a sense or moves a hand
+when it wants. Being fully local and open, you can audit exactly what it does
+with your screen.
 
-## The senses
+> ⚠️ **Public beta.** Daimon works end-to-end (installed, signed, driving real
+> apps) but it is young. Use a sensible ceiling, read the security model below,
+> and report issues.
 
-| Sense | Mode | Mechanism | Status |
-|-------|------|-----------|--------|
-| **Vue** | snapshot | screen capture (pixels) | implemented |
-| **Touché passif** | snapshot | full accessibility tree | stub |
-| **Touché actif** | probe | a11y element under a point/region | stub |
+---
 
-Daimon supplies pixels and structure only — it does **no** vision/OCR itself.
-The client looks with its own eyes. That is what keeps it agnostic.
+## The triad
 
-**Bounded by default (cost control):** `touche_tree` accepts `max_depth`,
-`root={x,y}` (subtree under a point), `roles=[...]`, `prune_empty`, `summary=true`
-(one line per node), and `window={pid|bundle|title}` to target a specific app
-instead of the frontmost. `vue_snapshot` accepts `region={x,y,width,height}` and
-defaults to `max_width=720` (pass a larger value for fine detail).
+**👁 Perceive — the senses**
 
-## The hands (motor organ)
+| Sense | What | Tool |
+|-------|------|------|
+| **Vue** | screen capture (pixels) | `vue_snapshot`, `vue_displays` |
+| **Touché passif** | accessibility tree of a window | `touche_tree` |
+| **Touché actif** | the element under a point | `touche_probe` |
 
-Daimon can act under a ceiling it enforces itself (default **L0**, hands off):
+Daimon supplies pixels and structure only — it does **no** vision/OCR itself; the
+client looks with its own eyes. Bounded by default for token cost (`max_depth`,
+`root`, `roles`, `summary`, `region`, …).
+
+**✋ Act — the hands**
+
+Acting is a separate organ under a ceiling Daimon enforces itself (default
+**L0**, hands off):
 
 | Level | Scope | Gate |
 |-------|-------|------|
 | L0 READ | nothing | — |
-| L1 NONDESTRUCTIVE | scroll, focus, navigate | none |
-| L2 INPUT | click, type, drag | none, unless the target is a point of no return |
+| L1 NONDESTRUCTIVE | scroll, focus, navigate, hover | none |
+| L2 INPUT | click (left/right/middle, double, modifiers), type, key, drag | none, unless the target is a point of no return |
 | L3 VALIDATION | engaging buttons | human confirmation on any non-return |
 | L4 AUTONOMOUS | full autonomy | none — everything traced |
 
-- Tools: `main_navigate`, `main_click` (`button=left|right|middle`, `count=1|2`,
-  `modifiers`), `main_key` (discrete key / chord, distinct from `main_type`),
-  `main_hover`, `main_press`, `main_type`, `main_activate` (bring an app
-  frontmost). Low-level press-and-hold primitives are planned (gated to L4).
-- Points of no return (send/delete/pay/…) are classified (AI declares, Daimon
-  verifies) and gated by a **native macOS dialog**. Timeout = deny.
-- **L4** is engaged only by a human typing a phrase out-of-band:
-  `python -m daimon.motor.control engage` (and `disengage`). The consent is
-  recorded in an append-only, hash-chained ledger under `logs/`. `no-log = no-act`.
-- Set the ceiling in `config/motor.yaml` (copy `config/motor.example.yaml`).
-- Kill the process at any time to stop everything — the physical override always wins.
-- **Acts on the *observed* target.** Before acting, Daimon re-probes the real
-  element under the coordinates (the AI's role/label are advisory). A lying
-  agent cannot dodge the gate by mislabelling a button; an unverifiable target
-  gates below L4 and is refused under L4 (no blind autonomous action).
-- **Secret content never leaves.** Secret-role fields (`AXSecureTextField`) and
-  declared secret apps are value-blanked in Touché and blacked out in Vue.
-- **Region-aware refusal.** Actions whose target falls in an excluded screen
-  region are refused, even under L4.
-- **Durable consent.** The L4 consent ledger is `flock`-guarded and hash-chained;
-  the active ceiling requires the state file *and* the ledger tail to agree, so a
-  forged state file cannot silently escalate to L4.
-- **Held-input primitives** (`main_mouse_down/up`, `main_key_down/up`) are L4-only
-  and auto-released by a watchdog if an `up` never arrives.
+Tools: `main_click`, `main_type`, `main_key`, `main_drag`, `main_hover`,
+`main_press`, `main_navigate`, `main_activate` (+ L4-gated held-input primitives).
 
-## The face (overlay)
+**🪞 Show — the face**
 
-The third organ — *show*. A premium, click-through overlay makes the agent
-legible: it highlights the element being targeted, ripples where it clicks, and
-**emphasises the exact element you confirm at the gate** (a security win, not
-just polish).
+A premium, click-through, capture-invisible overlay highlights what the agent
+targets, ripples where it clicks, and **emphasises the exact element you confirm
+at the gate**. Never on an action's critical path. Off by default.
 
-- Runs as a separate helper process: `python -m daimon.overlay.app`. The MCP
-  server drives it over a local socket; it is **never on an action's critical
-  path** (if it's absent or fails, actions proceed unchanged).
-- **Click-through** (never intercepts input) and **capture-invisible**
-  (`anti_feedback` keeps it out of `vue_snapshot`, so Daimon never films itself).
-- **Secret-safe**: labels are redacted the same way the senses are — a secret
-  field shows `🔒 protégé`, never its value.
-- Auto-shows what the motor does; the agent can also drive it explicitly with
-  `overlay_highlight`, `overlay_spotlight`, `overlay_cursor`, `overlay_banner`,
-  `overlay_clear`.
-- Enable via `config/overlay.yaml` (copy `config/overlay.example.yaml`); off by default.
+---
 
-## The menu bar (resident control surface)
+## Security model
 
-Double-clicking `Daimon.app` adds a **"δ" icon to the menu bar** — no Dock
-entry, no window.  The dropdown shows at a glance:
+Daimon is built so an AI can act on your machine *safely*:
 
-- macOS permission status (Screen Recording, Accessibility) and which AI clients
-  are registered.
-- **Hands ceiling** — set the motor limit to L0 READ / L1 NONDESTRUCTIVE /
-  L2 INPUT / L3 VALIDATION with a single click.  L4 full-autonomy stays
-  consent-gated; it can only be engaged via `python -m daimon.motor.control engage`.
-- **Show overlay** — toggle the click-through highlight layer on or off.
-- **Run setup…** — reopen the onboarding window to re-grant permissions or
-  re-register with a new AI client.
-- **Open config folder / Open logs** — Finder shortcuts.
-- **Quit Daimon** — terminate the tray process.
+- **Daimon enforces the ceiling**, not the client — any AI plugs in, none is
+  trusted. The AI can never raise its own limit.
+- **Points of no return** (send / delete / pay / drop-on-Trash …) are classified
+  on the **observed** element (the AI re-probes the real target — a lying agent
+  can't dodge the gate by mislabelling a button) and gated by a **native macOS
+  confirmation dialog**. Timeout = deny.
+- **L4 full autonomy** is unlocked only by a human typing a phrase out-of-band;
+  consent is recorded in an append-only, hash-chained ledger. `no-log = no-act`.
+  A forged state file can't escalate to L4.
+- **Secrets never leave**: secret-role fields (`AXSecureTextField`) and declared
+  apps are blanked in Touché and blacked out in Vue, *before* anything is served.
+- **Kill the process at any time** — the physical override always wins.
 
-On the **first launch** (no existing motor or overlay config), the onboarding
-window opens automatically so permissions and clients are configured before the
-tray settles into the menu bar.
+---
 
-The tray and the MCP servers are **separate processes**: they communicate via the
-config files (`config/motor.yaml`, `config/overlay.yaml`) that already exist —
-no IPC bus required.
+## Install (macOS)
 
-## Setup (install + onboarding)
+1. Download `Daimon-<version>.dmg` from the [latest release](../../releases/latest).
+2. Open it and drag **Daimon** to **Applications**.
+3. Launch **Daimon** — a **δ** icon appears in the menu bar (no Dock icon).
+   First run opens the onboarding window.
+4. **Register your AI clients** (one click) and **grant** Screen Recording +
+   Accessibility when guided.
+5. Restart your AI client. It now has `vue_*`, `touche_*`, `main_*`, `overlay_*`.
 
-One command gets a new user running — no manual config editing:
+The menu-bar dropdown lets you set the **hands ceiling** (L0–L3), toggle the
+overlay, re-run setup, and quit, any time.
 
-```bash
-daimon setup       # register Daimon into detected AI clients, then guide macOS permissions
-```
+> macOS permissions attach to the **app that launches Daimon** (your terminal /
+> IDE / AI app), not to Daimon.app — the onboarding explains this.
 
-- `daimon install [--all]` / `daimon uninstall` — register/remove Daimon in each
-  detected client's MCP config (Claude Code, Claude Desktop, Cursor, Windsurf).
-  Idempotent, reversible, and every write is backed up; a malformed client config
-  is refused, never overwritten.
-- `daimon status` — show where Daimon is registered.
-- `daimon onboard` — guide the macOS permission grants (Screen Recording,
-  Accessibility) with live verification. GUI version: `python -m daimon.onboard --gui`.
-- `daimon` with no arguments is still the MCP server (what clients launch).
+### Supported AI clients (auto-detect + one-click register)
 
-## Layout
+Claude Code · Claude Desktop · Cursor · Windsurf · GitHub Copilot CLI · Codex
+(CLI + Desktop) · Mistral Vibe · Antigravity (Desktop / IDE / CLI).
 
-```
-src/daimon/
-  server.py          # FastMCP server, registers the senses (stdio)
-  config.py          # loads exclusion zones
-  exclusions.py      # the secrets filter — runs before any sense serves
-  senses/
-    base.py          # Sense contract
-    vue.py           # Vue  → tool: vue_snapshot
-    touche.py        # Touché → tools: touche_tree, touche_probe (stubs)
-  capture/
-    screen.py        # macOS Quartz screen capture
-config/
-  exclusions.example.yaml   # copy to exclusions.yaml (git-ignored) and fill in
-tests/
-  test_exclusions.py        # secrets filter, runs without macOS deps
-```
+Registration is idempotent, reversible, and **backed up** — a malformed client
+config is refused, never overwritten. (Codex and Vibe use TOML; Daimon edits a
+`# DAIMON:START/END` marker block in place and leaves the rest of your config
+untouched.)
 
-## Run
+---
+
+## Run from source
 
 ```bash
 pip install -e ".[dev]"
-python -m daimon          # starts the MCP server on stdio
+daimon setup        # register into detected clients + guide permissions
+daimon serve        # the MCP stdio server (what clients launch)
 ```
 
-Grant the host process **Screen Recording** permission (System Settings →
-Privacy & Security) for Vue, and later **Accessibility** for Touché.
+CLI: `daimon install [--all] | uninstall | status | onboard | setup`.
+Set the ceiling in `~/Library/Application Support/Daimon/config/motor.yaml`
+(or via the menu bar). L4: `python -m daimon.motor.control engage`.
 
-Register with an MCP client (example, Claude Code):
+## Build the signed DMG
 
-```json
-{
-  "mcpServers": {
-    "daimon": { "command": "python", "args": ["-m", "daimon"] }
-  }
-}
+See [`build/macos/README.md`](build/macos/README.md). Requires Xcode CLT, an
+Apple Developer ID, and notary credentials. `./build/macos/build_macos.sh`
+(use `--no-sign` for a fast local build).
+
+## Tests
+
+```bash
+PYTHONPATH=src python -m pytest -q
 ```
 
-## Status
+The pure core (guard, reversibility, consent, audit, secrets filter, client
+registration, tray/menu, …) is unit-tested without macOS; the AppKit surfaces
+are smoke-validated.
 
-Scoping locked, Vue brick scaffolded. Touché is stubbed and lands next.
-Reference: [Omi](https://github.com/BasedHardware/omi) — perception/action
-decoupled, macOS 14+, Accessibility API.
+---
+
+## License
+
+[GNU AGPL-3.0-or-later](LICENSE). © Arborithm. If you run a modified version as a
+network service, the AGPL requires you to offer your users its source.
+
+Reference & kinship: [Omi](https://github.com/BasedHardware/omi) —
+perception/action decoupled on macOS via the Accessibility API.
