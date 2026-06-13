@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Info.plist template for the Daimon.app bundle (the onboarding launcher).
+
+  Substituted at build time by build_macos.sh:
+    @VERSION@        — pyproject.toml version
+    @BUILD_NUMBER@   — short git SHA
+    @MIN_OS@         — minimum supported macOS (default 11.0)
+
+  Daimon.app's executable is the onboarding GUI (Daimon). It is a normal
+  foreground app (a real window with an icon) — NOT LSUIElement — because its
+  whole job is the visible first-run setup. The MCP server runs separately as
+  Contents/MacOS/daimon, launched by the AI client.
+-->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Daimon</string>
+    <key>CFBundleExecutable</key>
+    <string>Daimon</string>
+    <key>CFBundleIdentifier</key>
+    <string>fr.arborithm.daimon</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Daimon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundleVersion</key>
+    <string>@BUILD_NUMBER@</string>
+    <key>CFBundleIconFile</key>
+    <string>Daimon.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>@MIN_OS@</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© Arborithm — MIT</string>
+</dict>
+</plist>

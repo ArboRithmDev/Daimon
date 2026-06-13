@@ -3,10 +3,14 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
-build/
 dist/
 .venv/
+.venv-build/
 venv/
+
+# PyInstaller build outputs (keep build/ SOURCE: daimon.spec, make_icon.py, macos/)
+/build/daimon/
+/build/generated-icons/
 .pytest_cache/
 .ruff_cache/
 

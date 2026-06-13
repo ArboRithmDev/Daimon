@@ -207,7 +207,20 @@ def build_server() -> FastMCP:
     return mcp
 
 
+def _record_permission_status() -> None:
+    """Best-effort: record this process's (correct-context) TCC grant status so
+    the onboarding GUI can confirm the client app actually has the permissions.
+    TCC attaches to the launching client, not Daimon.app — only the server,
+    running under that client, sees the true status."""
+    try:
+        from .setup.permissions import MacOSBackend, record_status
+        record_status(MacOSBackend())
+    except Exception:
+        pass  # never block the server on a marker write
+
+
 def main() -> None:
+    _record_permission_status()
     build_server().run()  # stdio transport by default
 
 

@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+build = ["pyinstaller>=6.10"]   # macOS .app/DMG packaging (build/daimon.spec)
 
 [project.scripts]
 daimon = "daimon.__main__:main"

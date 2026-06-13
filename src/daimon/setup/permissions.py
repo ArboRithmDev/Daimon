@@ -4,7 +4,10 @@ verify. Calls are behind a backend so the model is testable without macOS."""
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 PANE_SCREEN = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
@@ -66,3 +69,39 @@ def permissions_status(backend: PermissionBackend) -> list[Permission]:
         Permission("accessibility", "Accessibility (Touché + Hands)", backend.accessibility_ok(),
                    PANE_ACCESSIBILITY, "Lets Daimon read UI structure and act."),
     ]
+
+
+# -- self-report marker -----------------------------------------------------
+# TCC permissions attach to the responsible parent GUI (the AI client that
+# launches `daimon`), not to Daimon.app. So the onboarding GUI cannot verify
+# the client's grant from its own process. Instead the server records its OWN
+# (correct-context) permission status to a marker file on startup; the
+# onboarding GUI reads it to confirm "your AI has the permissions".
+
+
+def status_marker_path() -> Path:
+    return (Path(os.path.expanduser("~")) / "Library" / "Application Support"
+            / "Daimon" / "permissions.json")
+
+
+def record_status(backend: PermissionBackend, path: Path | None = None) -> dict:
+    """Write the current (this-process-context) grant status. Best-effort."""
+    path = path or status_marker_path()
+    data = {p.key: p.granted for p in permissions_status(backend)}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data), encoding="utf-8")
+    except OSError:
+        pass
+    return data
+
+
+def read_status(path: Path | None = None) -> dict:
+    """Read the last recorded grant status; {} if absent/unreadable."""
+    path = path or status_marker_path()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return {}
