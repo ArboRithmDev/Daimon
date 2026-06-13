@@ -27,8 +27,11 @@ ICONS_DIR="$BUILD_DIR/generated-icons"
 VENV_DIR="$REPO_ROOT/.venv-build"
 DMG_ROOT="$DIST_DIR/dmg-root"
 
-DEV_ID="${DEV_ID:-Developer ID Application: CHANGEME (TEAMID)}"
-TEAM_ID="${TEAM_ID:-TEAMID}"
+# Ben's Developer ID (same identity as SecondBrain). Not a secret — the team id
+# and name are embedded in every signed binary; the private key stays in the
+# login keychain. Override via env for a different signer.
+DEV_ID="${DEV_ID:-Developer ID Application: Benjamin DUBOIS (M729622MH3)}"
+TEAM_ID="${TEAM_ID:-M729622MH3}"
 BUNDLE_ID="${DAIMON_BUNDLE_ID:-fr.arborithm.daimon}"
 APP_NAME="Daimon"
 APP_BUNDLE="$DIST_DIR/${APP_NAME}.app"

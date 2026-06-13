@@ -37,8 +37,9 @@ once the app is in `/Applications`.
 ## Build
 
 ```bash
-export DEV_ID="Developer ID Application: <Name> (TEAMID)"
-export TEAM_ID="TEAMID"
+# DEV_ID / TEAM_ID default to Ben's identity in build_macos.sh
+# (Developer ID Application: Benjamin DUBOIS (M729622MH3)). Override only for a
+# different signer. notarytool still needs your AC_PASSWORD keychain profile.
 cd /Users/Ben/Projets/Daimon
 ./build/macos/build_macos.sh                 # signed + notarized
 ```
