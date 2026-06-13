@@ -29,13 +29,12 @@ def test_serve_runs_server(monkeypatch):
     assert ran.get("server") is True
 
 
-def test_no_arg_frozen_runs_gui(monkeypatch):
-    # A frozen .app double-clicked from Finder shows the onboarding GUI.
+def test_no_arg_frozen_runs_tray(monkeypatch):
     monkeypatch.setattr(m.sys, "frozen", True, raising=False)
     ran = {}
-    monkeypatch.setattr("daimon.setup.gui.__main__.main", lambda: ran.setdefault("gui", True) or 0)
+    monkeypatch.setattr("daimon.tray.app.__main__.main", lambda: ran.setdefault("tray", True) or 0)
     m.main([])
-    assert ran.get("gui") is True
+    assert ran.get("tray") is True
 
 
 def test_gui_flag_runs_gui(monkeypatch):
