@@ -27,3 +27,4 @@ config/*.local.yaml
 config/motor.yaml
 config/motor.state.json
 logs/
+config/overlay.yaml

@@ -19,6 +19,40 @@ from .senses.touche import Touche
 from .senses.vue import Vue
 
 
+def _register_overlay(mcp) -> None:
+    from .config import load_overlay_config
+    from .overlay import launcher
+    from .overlay.client import OverlayClient
+    from .overlay.protocol import Highlight, Spotlight, Cursor, Banner, Clear
+
+    client = OverlayClient(launcher.socket_path())  # silent no-op if overlay not running
+
+    @mcp.tool(name="overlay_highlight", description="Outline a screen rect with an optional label.")
+    def overlay_highlight(x: int, y: int, width: int, height: int, label: str = "") -> dict:
+        client.send(Highlight(x=x, y=y, w=width, h=height, label=label))
+        return {"ok": True}
+
+    @mcp.tool(name="overlay_spotlight", description="Dim everything except a screen rect (focus).")
+    def overlay_spotlight(x: int, y: int, width: int, height: int) -> dict:
+        client.send(Spotlight(x=x, y=y, w=width, h=height))
+        return {"ok": True}
+
+    @mcp.tool(name="overlay_cursor", description="Move the overlay cursor halo to (x,y).")
+    def overlay_cursor(x: int, y: int) -> dict:
+        client.send(Cursor(x=x, y=y))
+        return {"ok": True}
+
+    @mcp.tool(name="overlay_banner", description="Show a HUD banner message.")
+    def overlay_banner(text: str, level: str = "L1") -> dict:
+        client.send(Banner(text=text, level=level))
+        return {"ok": True}
+
+    @mcp.tool(name="overlay_clear", description="Clear all overlay drawings.")
+    def overlay_clear() -> dict:
+        client.send(Clear())
+        return {"ok": True}
+
+
 def _register_motor(mcp) -> None:
     organ = build_organ()
 
@@ -168,6 +202,7 @@ def build_server() -> FastMCP:
         sense.register(mcp)
 
     _register_motor(mcp)
+    _register_overlay(mcp)
 
     return mcp
 

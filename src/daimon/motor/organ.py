@@ -18,6 +18,7 @@ from .gate import HumanGate
 from .guard import PolicyGuard
 from .probe import Prober
 from .types import MotorAction, Verdict
+from ..overlay.presenter import NullPresenter
 
 
 class MotorOrgan:
@@ -29,6 +30,7 @@ class MotorOrgan:
         session_log: AppendOnlyLedger,
         clock: Callable[[], str],
         prober: Prober,
+        presenter=None,
     ) -> None:
         self._guard = guard
         self._gate = gate
@@ -36,6 +38,7 @@ class MotorOrgan:
         self._log = session_log
         self._clock = clock
         self._prober = prober
+        self._presenter = presenter or NullPresenter()
 
     def _record(self, action: MotorAction, phase: str, extra: dict) -> bool:
         try:
@@ -52,6 +55,12 @@ class MotorOrgan:
         except (OSError, ValueError):
             return False
 
+    def _present(self, method: str, *args) -> None:
+        try:
+            getattr(self._presenter, method)(*args)
+        except Exception:
+            pass  # presentation never affects the action
+
     def act(self, action: MotorAction) -> dict:
         claimed = action.target
         observed = self._prober.observe(action)
@@ -63,20 +72,26 @@ class MotorOrgan:
                           "observed_role": observed.role, "observed_label": observed.label})
         decision = self._guard.evaluate(action)
 
+        self._present("present_intent", action, decision)
         if decision.verdict == Verdict.REFUSE:
+            self._present("present_refused", action, decision.reason)
             return {"status": "refused", "reason": decision.reason}
 
         if decision.verdict == Verdict.GATE:
+            self._present("present_gate", action)
             if not self._gate.confirm(action):
                 self._record(action, "denied", {"reason": "human denied"})
+                self._present("present_refused", action, "human denied")
                 return {"status": "refused", "reason": "human denied"}
             must_log = True
         else:
             must_log = decision.must_log
 
         if must_log and not self._record(action, "authorized", {"reason": decision.reason}):
+            self._present("present_refused", action, "no-log=no-act")
             return {"status": "refused", "reason": "no-log=no-act (audit write failed)"}
 
         result = self._actuator.execute(action)
         self._record(action, "executed", {"result": result})
+        self._present("present_executed", action, result)
         return {"status": "done", "result": result}

@@ -1,0 +1,6 @@
+# Daimon overlay ("the face") — premium on-screen presentation of what the
+# agent looks at and does. Copy to config/overlay.yaml to enable.
+overlay:
+  enabled: false        # set true to show the overlay
+  opacity: 0.95
+  anti_feedback: true   # keep the overlay invisible to Vue screen capture
