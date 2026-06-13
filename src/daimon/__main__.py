@@ -11,6 +11,12 @@ Behaviours:
 A single executable keeps the macOS .app bundle simple (PyInstaller does not
 cleanly support two executables in one bundle). MCP clients are registered with
 an explicit `serve` argument (see setup/invocation.py).
+
+NOTE: imports below are ABSOLUTE (`daimon.…`), not relative. PyInstaller runs
+this file as the top-level `__main__` script with no package context, so
+relative imports (`from .server …`) raise "attempted relative import with no
+known parent package" in the frozen .app. Absolute imports work both frozen and
+under `python -m daimon`.
 """
 
 from __future__ import annotations
@@ -21,18 +27,18 @@ _SUBCOMMANDS = {"setup", "install", "uninstall", "status", "onboard"}
 
 
 def _run_server() -> int:
-    from .server import main as server_main
+    from daimon.server import main as server_main
     server_main()
     return 0
 
 
 def _run_gui() -> int:
-    from .setup.gui.__main__ import main as gui_main
+    from daimon.setup.gui.__main__ import main as gui_main
     return gui_main()
 
 
 def _run_tray() -> int:
-    from .tray.app.__main__ import main as tray_main
+    from daimon.tray.app.__main__ import main as tray_main
     return tray_main()
 
 
@@ -43,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "serve":
         return _run_server()
     if argv and argv[0] in _SUBCOMMANDS:
-        from .setup.cli import run_command
+        from daimon.setup.cli import run_command
         return run_command(argv)
     if argv and "--gui" in argv:
         return _run_gui()
