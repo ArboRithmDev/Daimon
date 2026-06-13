@@ -31,12 +31,19 @@ _DANGER_TEXT = re.compile(
 _DANGER_KEYS = re.compile(r"(?i)\bcmd\+(shift\+)?delete\b")
 
 
-def _target_text(target: Target) -> str:
-    return " ".join(p for p in (target.label, target.value, target.role) if p)
+def _target_text(target: Target, *, include_value: bool = True) -> str:
+    parts = (target.label, target.value if include_value else None, target.role)
+    return " ".join(p for p in parts if p)
 
 
 def classify(action: MotorAction) -> Reversibility:
-    text = _target_text(action.target)
+    # For keyboard actions (type/key) the target is the focused field; its `value`
+    # is the text ALREADY there, not a signal about whether the keystroke is a
+    # point of no return. Scanning it false-gates any typing into a field that
+    # happens to contain a word like "delete"/"send". Only the combo (below) and
+    # the field's role/label matter for keyboard reversibility.
+    include_value = action.name not in ("key", "type")
+    text = _target_text(action.target, include_value=include_value)
     if text and _DANGER_TEXT.search(text):
         return Reversibility(True, f"target matches non-return verb: {text!r}")
 
