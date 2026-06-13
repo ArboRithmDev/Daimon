@@ -98,3 +98,26 @@ def build_panel(controller, content_view) -> None:
     title.setDrawsBackground_(False)
     title.setEditable_(False)
     content_view.addSubview_(title)
+
+    # --- AI apps (clients) section, at the bottom of the window ---
+    clients_label = NSTextField.alloc().initWithFrame_(
+        NSMakeRect(margin, 16, label_w, btn_h)
+    )
+    clients_label.setStringValue_("AI apps: …")
+    clients_label.setBezeled_(False)
+    clients_label.setDrawsBackground_(False)
+    clients_label.setEditable_(False)
+    content_view.addSubview_(clients_label)
+
+    reg_btn = NSButton.alloc().initWithFrame_(
+        NSMakeRect(margin + label_w + 8, 14, 150, btn_h)
+    )
+    reg_btn.setTitle_("Register Daimon")
+    reg_btn.setBezelStyle_(NSBezelStyleRounded)
+    reg_target = controller._make_target(lambda: controller.register_clients())
+    reg_btn.setTarget_(reg_target)
+    reg_btn.setAction_("invoke:")
+    content_view.addSubview_(reg_btn)
+
+    controller._clients_label = clients_label
+    controller._clients_target = reg_target  # retain against GC

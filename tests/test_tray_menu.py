@@ -26,6 +26,31 @@ def test_menu_has_status_settings_and_actions():
     assert "set_ceiling:READ" in ids and "set_ceiling:VALIDATION" in ids
 
 
+def test_clients_are_toggleable_checkboxes():
+    items = build_menu(_state(clients=(
+        ClientStatus("Claude Code", True), ClientStatus("Cursor", False))))
+    # find the Clients submenu and inspect its rows
+    sub = next(i for i in items if i.kind == "submenu" and "Clients" in i.label)
+    by_action = {c.action_id: c for c in sub.children if c.kind == "checkbox"}
+    assert by_action["toggle_client:Claude Code"].checked is True
+    assert by_action["toggle_client:Cursor"].checked is False
+
+
+def test_install_all_offered_only_when_some_unregistered():
+    # one unregistered → install_all present
+    items = build_menu(_state(clients=(ClientStatus("Cursor", False),)))
+    assert "install_all" in _ids(items)
+    # all registered → no install_all
+    items = build_menu(_state(clients=(ClientStatus("Claude Code", True),)))
+    assert "install_all" not in _ids(items)
+
+
+def test_no_clients_shows_placeholder():
+    items = build_menu(_state(clients=()))
+    sub = next(i for i in items if i.kind == "submenu" and "Clients" in i.label)
+    assert any("No AI clients detected" in c.label for c in sub.children)
+
+
 def test_ceiling_submenu_marks_current_and_excludes_l4():
     items = build_menu(_state(ceiling=Level.INPUT))
     ceiling = next(i for i in items if i.kind == "submenu" and "lafond" in i.label or "eiling" in i.label.lower())

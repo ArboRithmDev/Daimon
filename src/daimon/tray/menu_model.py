@@ -34,10 +34,24 @@ def build_menu(state: TrayState) -> list[MenuItem]:
                  checked=(state.ceiling == lvl))
         for lvl in _SETTABLE_CEILINGS
     )
-    clients_children = tuple(
-        MenuItem(kind="label", label=f"{c.name}  {_dot(c.registered)}")
-        for c in state.clients
-    ) or (MenuItem(kind="label", label="No AI clients detected", enabled=False),)
+    if state.clients:
+        rows = tuple(
+            MenuItem(kind="checkbox", label=c.name,
+                     action_id=f"toggle_client:{c.name}", checked=c.registered)
+            for c in state.clients
+        )
+        # If any detected client isn't registered yet, offer a one-click deploy.
+        if any(not c.registered for c in state.clients):
+            rows = (
+                MenuItem(kind="action", label="Register Daimon into all detected",
+                         action_id="install_all"),
+                MenuItem(kind="separator"),
+            ) + rows
+        clients_children = rows
+    else:
+        clients_children = (
+            MenuItem(kind="label", label="No AI clients detected", enabled=False),
+        )
 
     items: list[MenuItem] = [
         MenuItem(kind="label", label=f"Daimon v{state.version}", enabled=False),
