@@ -27,6 +27,8 @@ class OnboardingController:
         # key -> {"dot": NSTextField, "btn": NSButton, "target": _ButtonTarget}
         self._rows: dict = {}
         self._window = None
+        self._clients_label = None   # set by layout.build_panel
+        self._clients_target = None  # retained against GC
 
     # ------------------------------------------------------------------
     # Public API consumed by __main__
@@ -90,6 +92,32 @@ class OnboardingController:
             self._backend.open_pane(PANE_ACCESSIBILITY)
 
     # ------------------------------------------------------------------
+    # Client deployment
+    # ------------------------------------------------------------------
+
+    def register_clients(self) -> None:
+        """Register Daimon into every detected AI client, then refresh the label."""
+        from ...applog import log_exception
+        try:
+            from ..deploy import install_all
+            install_all()
+        except Exception:
+            log_exception("register_clients")
+        self._update_clients()
+
+    def _update_clients(self) -> None:
+        if self._clients_label is None:
+            return
+        try:
+            from ..deploy import client_summary
+            n, m = client_summary()
+            text = (f"AI apps: {n}/{m} registered" if m
+                    else "AI apps: none detected")
+            self._clients_label.setStringValue_(text)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
     # Live-status poller (~1 s cadence via PyObjC run-loop integration)
     # ------------------------------------------------------------------
 
@@ -100,6 +128,7 @@ class OnboardingController:
         def tick() -> None:
             for perm in permissions_status(self._backend):
                 self._update_row(perm)
+            self._update_clients()
             AppHelper.callLater(1.0, tick)
 
         tick()

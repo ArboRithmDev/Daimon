@@ -164,6 +164,32 @@ class StatusItemController:
             set_overlay(not current, _OVERLAY_DEFAULT)
             self._rebuild_menu()
 
+        elif action_id == "install_all":
+            from ...applog import log_exception
+            try:
+                from ...setup.deploy import install_all
+                install_all()
+                self._rebuild_menu()
+            except Exception:
+                log_exception("install_all")
+
+        elif action_id.startswith("toggle_client:"):
+            from ...applog import log_exception
+            name = action_id[len("toggle_client:"):]
+            try:
+                from ...setup.clients import base
+                from ...setup.clients.registry import default_adapters, detected
+                from ...setup.invocation import daimon_command
+                adapter = next((a for a in detected(default_adapters()) if a.name == name), None)
+                if adapter is not None:
+                    if base.status(adapter, "daimon").action == "present":
+                        base.uninstall(adapter, "daimon")
+                    else:
+                        base.install(adapter, "daimon", daimon_command())
+                self._rebuild_menu()
+            except Exception:
+                log_exception("toggle_client")
+
         elif action_id == "run_setup":
             from ...applog import log_exception, log_message
             log_message("run_setup: opening onboarding window")
