@@ -39,6 +39,7 @@ def _run_tray() -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
+    # Explicit commands win, in any mode.
     if argv and argv[0] == "serve":
         return _run_server()
     if argv and argv[0] in _SUBCOMMANDS:
@@ -46,13 +47,15 @@ def main(argv: list[str] | None = None) -> int:
         return run_command(argv)
     if argv and "--gui" in argv:
         return _run_gui()
-    if not argv:
-        # Frozen .app launched from Finder → start the resident menu-bar tray.
-        # Source `python -m daimon` with no args → start the server (back-compat).
-        if getattr(sys, "frozen", False):
-            return _run_tray()
-        return _run_server()
-    # Any other args → server (back-compat: clients historically passed none).
+
+    # Default (no explicit command):
+    #   * frozen .app → the resident menu-bar tray. LaunchServices may pass stray
+    #     args (e.g. `-psn_0_12345`), so the tray is the default for ANY non-command
+    #     argv when frozen — never fall through to the stdio server, which would
+    #     just wait on absent stdin and show nothing.
+    #   * from source → the MCP server (back-compat for `python -m daimon`).
+    if getattr(sys, "frozen", False):
+        return _run_tray()
     return _run_server()
 
 
