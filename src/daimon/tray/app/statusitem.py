@@ -104,8 +104,8 @@ class StatusItemController:
         try:
             self._rebuild_menu()
         except Exception:
-            import traceback
-            traceback.print_exc()
+            from daimon.applog import log_exception
+            log_exception("poll/_rebuild_menu")
         AppHelper.callLater(2.0, self._poll)
 
     def _rebuild_menu(self) -> None:
@@ -182,8 +182,8 @@ class StatusItemController:
             try:
                 self._dispatch(action_id)
             except Exception:
-                import traceback
-                traceback.print_exc()
+                from ...applog import log_exception
+                log_exception(action_id)
 
         return callback
 
@@ -205,14 +205,16 @@ class StatusItemController:
             self._rebuild_menu()
 
         elif action_id == "run_setup":
+            from ...applog import log_exception, log_message
+            log_message("run_setup: opening onboarding window")
             try:
                 from ...setup.gui.window import OnboardingController
                 from ...setup.permissions import MacOSBackend
                 self._onboard = OnboardingController(MacOSBackend())
                 self._onboard.show()
+                log_message("run_setup: onboarding window shown")
             except Exception:
-                import traceback
-                traceback.print_exc()
+                log_exception("run_setup")
 
         elif action_id == "open_config":
             try:
@@ -222,8 +224,8 @@ class StatusItemController:
                 d.mkdir(parents=True, exist_ok=True)
                 subprocess.run(["open", str(d)], check=False)
             except Exception:
-                import traceback
-                traceback.print_exc()
+                from ...applog import log_exception
+                log_exception(action_id)
 
         elif action_id == "open_logs":
             try:
@@ -233,8 +235,8 @@ class StatusItemController:
                 d.mkdir(parents=True, exist_ok=True)
                 subprocess.run(["open", str(d)], check=False)
             except Exception:
-                import traceback
-                traceback.print_exc()
+                from ...applog import log_exception
+                log_exception(action_id)
 
         elif action_id == "quit":
             from AppKit import NSApp
