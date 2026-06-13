@@ -7,7 +7,11 @@ from pathlib import Path
 
 from ..config import load_motor_config
 from ..config import load_config as load_exclusions
+from ..config import load_overlay_config
 from ..exclusions import ExclusionFilter
+from ..overlay import launcher
+from ..overlay.client import OverlayClient
+from ..overlay.presenter import NullPresenter, OverlayPresenter
 from .actuator import MacOSActuator
 from .audit import AppendOnlyLedger
 from .consent import ConsentManager
@@ -41,6 +45,12 @@ def build_organ() -> MotorOrgan:
     exclusions = ExclusionFilter(load_exclusions().exclusions)
     guard = PolicyGuard(exclusions, ceiling_provider=consent.current_ceiling)
     _LOGS.mkdir(exist_ok=True)
+    ocfg = load_overlay_config()
+    if ocfg.enabled:
+        launcher.ensure_running()
+        presenter = OverlayPresenter(OverlayClient(launcher.socket_path()), exclusions)
+    else:
+        presenter = NullPresenter()
     return MotorOrgan(
         guard=guard,
         gate=MacOSGate(),
@@ -48,4 +58,5 @@ def build_organ() -> MotorOrgan:
         session_log=AppendOnlyLedger(_LOGS / "session.jsonl"),
         clock=_now,
         prober=MacOSProber(),
+        presenter=presenter,
     )
