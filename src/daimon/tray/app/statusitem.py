@@ -213,8 +213,10 @@ class StatusItemController:
         elif action_id == "open_config":
             try:
                 import subprocess
-                from ...config import _REPO_ROOT
-                subprocess.run(["open", str(_REPO_ROOT / "config")], check=False)
+                from ...userdata import config_dir
+                d = config_dir()
+                d.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["open", str(d)], check=False)
             except Exception:
                 import traceback
                 traceback.print_exc()
@@ -222,8 +224,10 @@ class StatusItemController:
         elif action_id == "open_logs":
             try:
                 import subprocess
-                from ...config import _REPO_ROOT
-                subprocess.run(["open", str(_REPO_ROOT / "logs")], check=False)
+                from ...userdata import logs_dir
+                d = logs_dir()
+                d.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["open", str(d)], check=False)
             except Exception:
                 import traceback
                 traceback.print_exc()

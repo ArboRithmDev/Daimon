@@ -80,8 +80,8 @@ def permissions_status(backend: PermissionBackend) -> list[Permission]:
 
 
 def status_marker_path() -> Path:
-    return (Path(os.path.expanduser("~")) / "Library" / "Application Support"
-            / "Daimon" / "permissions.json")
+    from ..userdata import data_dir
+    return data_dir() / "permissions.json"
 
 
 def record_status(backend: PermissionBackend, path: Path | None = None) -> dict:
