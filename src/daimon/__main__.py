@@ -14,8 +14,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] in _SUBCOMMANDS:
         from .setup.cli import run_command
-        rc = run_command(argv)
-        return rc if isinstance(rc, int) else 0
+        return run_command(argv)
     from .server import main as server_main
     server_main()
     return 0

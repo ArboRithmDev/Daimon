@@ -53,13 +53,7 @@ class MacOSBackend:
         CGRequestScreenCaptureAccess()
     def request_accessibility(self) -> None:
         from ApplicationServices import AXIsProcessTrustedWithOptions
-        from CoreFoundation import CFDictionaryCreate, kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks
-        # kAXTrustedCheckOptionPrompt == "AXTrustedCheckOptionPrompt"
-        try:
-            AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": True})
-        except Exception:
-            from ApplicationServices import AXIsProcessTrusted
-            AXIsProcessTrusted()
+        AXIsProcessTrustedWithOptions({"AXTrustedCheckOptionPrompt": True})
     def open_pane(self, pane: str) -> None:
         import subprocess
         subprocess.run(["open", pane], check=False)

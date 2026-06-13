@@ -4,7 +4,12 @@ import daimon.__main__ as m
 
 def test_subcommand_routes_to_cli(monkeypatch):
     calls = {}
-    monkeypatch.setattr("daimon.setup.cli.run_command", lambda argv: calls.setdefault("argv", argv) or 0)
+
+    def _fake(argv):
+        calls["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("daimon.setup.cli.run_command", _fake)
     code = m.main(["status"])
     assert calls["argv"] == ["status"] and code == 0
 

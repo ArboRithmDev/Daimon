@@ -24,31 +24,56 @@ def _print(msg: str) -> None:
     print(msg)
 
 
-def _targets(adapters):
+def _targets(adapters, client_filter=None):
     adapters = adapters if adapters is not None else default_adapters()
-    return detected(adapters)
+    result = detected(adapters)
+    if client_filter is not None:
+        result = [a for a in result if a.name.lower() == client_filter.lower()]
+    return result
 
 
-def cmd_status(adapters) -> int:
-    for a in _targets(adapters):
+def _parse_client_filter(rest: list[str]) -> str | None:
+    """Return the value of --client NAME from a remainder arg list, or None."""
+    i = 0
+    while i < len(rest):
+        if rest[i] == "--client" and i + 1 < len(rest):
+            return rest[i + 1]
+        i += 1
+    return None
+
+
+def cmd_status(adapters, client_filter=None) -> int:
+    targets = _targets(adapters, client_filter)
+    if not targets:
+        _print("  (no supported AI clients detected)")
+        return 0
+    for a in targets:
         r = base.status(a, "daimon")
         tag = f"{_OK}registered{_END}" if r.action == "present" else f"{_DIM}not registered{_END}"
         _print(f"  {a.name:16} {tag}  {_DIM}{a.config_path}{_END}")
     return 0
 
 
-def cmd_install(adapters) -> int:
+def cmd_install(adapters, client_filter=None) -> int:
+    targets = _targets(adapters, client_filter)
+    if not targets:
+        _print("  (no supported AI clients detected)")
+        return 0
     entry = daimon_command()
     ts = _ts()
-    for a in _targets(adapters):
+    for a in targets:
         r = base.install(a, "daimon", entry, ts=ts)
         _print(f"  {a.name:16} {r.action}  {_DIM}{r.detail}{_END}")
     return 0
 
 
-def cmd_uninstall(adapters) -> int:
+def cmd_uninstall(adapters, client_filter=None) -> int:
+    targets = _targets(adapters, client_filter)
+    if not targets:
+        _print("  (no supported AI clients detected)")
+        return 0
     ts = _ts()
-    for a in _targets(adapters):
+    for a in targets:
         r = base.uninstall(a, "daimon", ts=ts)
         _print(f"  {a.name:16} {r.action}")
     return 0
@@ -59,17 +84,18 @@ def run_command(argv, *, adapters=None, backend=None, io=None) -> int:
         _print("Usage: daimon [setup|install|uninstall|status|onboard]")
         return 2
     cmd, rest = argv[0], argv[1:]
+    client_filter = _parse_client_filter(rest)
     if cmd == "status":
-        return cmd_status(adapters)
+        return cmd_status(adapters, client_filter)
     if cmd == "install":
-        return cmd_install(adapters)
+        return cmd_install(adapters, client_filter)
     if cmd == "uninstall":
-        return cmd_uninstall(adapters)
+        return cmd_uninstall(adapters, client_filter)
     if cmd in ("onboard", "setup"):
         from .onboard_flow import run_onboarding
         rc = 0
         if cmd == "setup":
-            rc = cmd_install(adapters)
+            rc = cmd_install(adapters, client_filter)
         return rc or run_onboarding(backend=backend, io=io)
     _print(f"Unknown command: {cmd}")
     return 2
