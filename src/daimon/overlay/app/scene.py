@@ -5,11 +5,35 @@ from __future__ import annotations
 from ..theme import style_for
 
 
+# Keyed marks self-remove this many seconds after their last refresh, so a
+# missing overlay_clear (or a wedged driver) can never leave a permanent ghost.
+_MARK_TTL = 6.0
+
+
 class Scene:
     def __init__(self, layer, height: float = 0):
         self._root = layer
         self._h = height
         self._nodes = {}   # keyed transient layers
+        self._gen = {}     # per-key generation for TTL expiry
+
+    def _arm_expiry(self, key: str, ttl: float = _MARK_TTL) -> None:
+        """(Re)start the auto-remove timer for a keyed mark."""
+        self._gen[key] = self._gen.get(key, 0) + 1
+        gen = self._gen[key]
+
+        def _fire():
+            if self._gen.get(key) != gen:
+                return  # refreshed since → newer timer owns it
+            node = self._nodes.pop(key, None)
+            if node is not None:
+                node.removeFromSuperlayer()
+
+        try:
+            from PyObjCTools import AppHelper
+            AppHelper.callLater(ttl, _fire)
+        except Exception:
+            pass  # no run loop (tests) → no expiry needed
 
     def _nscolor(self, rgba, opacity=1.0):
         from AppKit import NSColor
@@ -34,6 +58,7 @@ class Scene:
             self._root.addSublayer_(h); self._nodes["highlight"] = h
         if st["pulse"]:
             self._pulse(h, st["duration"])
+        self._arm_expiry("highlight")
 
     def _do_spotlight(self, cmd):
         pass  # vignette mask — premium; drawn as a dimmed full-screen layer with a clear hole
@@ -46,6 +71,7 @@ class Scene:
         c.setBackgroundColor_(self._nscolor((0.25, 0.55, 0.95, 1.0), 0.25))
         if "cursor" not in self._nodes:
             self._root.addSublayer_(c); self._nodes["cursor"] = c
+        self._arm_expiry("cursor")
 
     def _do_ripple(self, cmd):
         import Quartz
@@ -74,11 +100,15 @@ class Scene:
         t.setFrame_(((40, y_pos), (480, 28)))
         if "banner" not in self._nodes:
             self._root.addSublayer_(t); self._nodes["banner"] = t
+        self._arm_expiry("banner")
 
     def _do_clear(self, cmd):
         for layer in list(self._nodes.values()):
             layer.removeFromSuperlayer()
         self._nodes.clear()
+        # Invalidate every pending expiry timer so none fires on a stale node.
+        for key in list(self._gen):
+            self._gen[key] += 1
 
     def _pulse(self, layer, duration):
         import Quartz
