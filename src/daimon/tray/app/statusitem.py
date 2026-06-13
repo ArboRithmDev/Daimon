@@ -16,47 +16,6 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# ObjC button-target factory  (deferred, class cached per process)
-# ---------------------------------------------------------------------------
-
-def _make_target(callback):
-    """Return an Objective-C object whose ``invoke:`` selector calls *callback*.
-
-    Mirrors the same pattern used in ``daimon.setup.gui.window._make_target``.
-    The NSObject subclass is defined once and cached on the function object.
-    """
-    from Foundation import NSObject
-    import objc
-
-    if not hasattr(_make_target, "_cls"):
-        class _ButtonTarget(NSObject):
-            def init(self):
-                self = objc.super(_ButtonTarget, self).init()
-                if self is None:
-                    return None
-                self._cb = None
-                return self
-
-            @objc.python_method
-            def _set_callback(self, cb):
-                self._cb = cb
-
-            def invoke_(self, sender):
-                if self._cb is not None:
-                    try:
-                        self._cb()
-                    except Exception:
-                        import traceback
-                        traceback.print_exc()
-
-        _make_target._cls = _ButtonTarget
-
-    instance = _make_target._cls.alloc().init()
-    instance._set_callback(callback)
-    return instance
-
-
-# ---------------------------------------------------------------------------
 # StatusItemController
 # ---------------------------------------------------------------------------
 
@@ -160,9 +119,10 @@ class StatusItemController:
             return ns_item
 
         # action / radio / checkbox — wire a target
+        from ...objc_bridge import make_target
         action_id = item.action_id
         callback = self._make_callback(action_id)
-        target = _make_target(callback)
+        target = make_target(callback)
         self._targets.append(target)
 
         ns_item.setTarget_(target)

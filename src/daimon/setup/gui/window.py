@@ -12,44 +12,6 @@ and returns a ready-to-use instance.  This keeps the module import 100% clean.
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# ObjC button-target factory  (all macOS imports deferred inside the function)
-# ---------------------------------------------------------------------------
-
-def _make_target(callback):
-    """Return an Objective-C object whose ``invoke:`` selector calls *callback*.
-
-    A new NSObject subclass is created on the first call and cached so PyObjC
-    does not re-register the class on subsequent calls.
-    """
-    from Foundation import NSObject
-    import objc
-
-    # Cache the class on the module so we only define it once per process.
-    if not hasattr(_make_target, "_cls"):
-        class _ButtonTarget(NSObject):
-            def init(self):
-                self = objc.super(_ButtonTarget, self).init()
-                if self is None:
-                    return None
-                self._cb = None
-                return self
-
-            @objc.python_method
-            def _set_callback(self, cb):
-                self._cb = cb
-
-            def invoke_(self, sender):
-                if self._cb is not None:
-                    self._cb()
-
-        _make_target._cls = _ButtonTarget
-
-    instance = _make_target._cls.alloc().init()
-    instance._set_callback(callback)
-    return instance
-
-
-# ---------------------------------------------------------------------------
 # Onboarding controller
 # ---------------------------------------------------------------------------
 
@@ -109,7 +71,8 @@ class OnboardingController:
 
     def _make_target(self, callback):
         """Wrap *callback* in an ObjC object usable as a button target."""
-        return _make_target(callback)
+        from ...objc_bridge import make_target
+        return make_target(callback)
 
     # ------------------------------------------------------------------
     # Grant action
