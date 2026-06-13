@@ -16,7 +16,7 @@ def main() -> None:
     app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)  # no Dock icon
     win = make_overlay_window(anti_feedback=cfg.anti_feedback)
     win.contentView().layer().setOpacity_(cfg.opacity)
-    scene = Scene(win.contentView().layer())
+    scene = Scene(win.contentView().layer(), height=win.frame().size.height)
     OverlayServer(scene, flip_height=win.frame().size.height).start()
     AppHelper.runEventLoop()
 

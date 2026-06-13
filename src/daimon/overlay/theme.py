@@ -10,6 +10,7 @@ STYLES: dict[str, dict] = {
     "L1":      {"rgba": (0.55, 0.60, 0.66, 0.85), "radius": 8, "duration": 0.25, "pulse": False},
     "L2":      {"rgba": (0.25, 0.55, 0.95, 0.95), "radius": 8, "duration": 0.22, "pulse": False},
     "L3":      {"rgba": (0.96, 0.70, 0.20, 0.97), "radius": 9, "duration": 0.20, "pulse": True},
+    "L4":      {"rgba": (0.66, 0.28, 0.85, 0.98), "radius": 9, "duration": 0.18, "pulse": True},
     "gate":    {"rgba": (0.92, 0.23, 0.23, 1.00), "radius": 10, "duration": 0.16, "pulse": True},
 }
 

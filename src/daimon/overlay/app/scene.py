@@ -6,8 +6,9 @@ from ..theme import style_for
 
 
 class Scene:
-    def __init__(self, layer):
+    def __init__(self, layer, height: float = 0):
         self._root = layer
+        self._h = height
         self._nodes = {}   # keyed transient layers
 
     def _nscolor(self, rgba, opacity=1.0):
@@ -53,7 +54,10 @@ class Scene:
         r.setCornerRadius_(4)
         r.setBackgroundColor_(self._nscolor((0.25, 0.55, 0.95, 1.0)))
         self._root.addSublayer_(r)
+        Quartz.CATransaction.begin()
+        Quartz.CATransaction.setCompletionBlock_(lambda: r.removeFromSuperlayer())
         self._ripple(r)
+        Quartz.CATransaction.commit()
 
     def _do_banner(self, cmd):
         import Quartz
@@ -64,8 +68,10 @@ class Scene:
         t.setForegroundColor_(self._nscolor((1, 1, 1, 1)))
         t.setBackgroundColor_(self._nscolor(sf(cmd.level)["rgba"], 0.85))
         t.setCornerRadius_(8)
+        t.setMasksToBounds_(True)
         t.setAlignmentMode_("center")
-        t.setFrame_(((40, 40), (480, 28)))
+        y_pos = (self._h - 60) if self._h > 0 else 40
+        t.setFrame_(((40, y_pos), (480, 28)))
         if "banner" not in self._nodes:
             self._root.addSublayer_(t); self._nodes["banner"] = t
 

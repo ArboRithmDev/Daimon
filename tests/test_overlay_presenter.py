@@ -56,3 +56,15 @@ def test_executed_emits_ripple():
     p = OverlayPresenter(sink, ExclusionFilter(ExclusionConfig()))
     p.present_executed(_action("Send"), {"status": "executed"})
     assert any(isinstance(c, Ripple) for c in sink.lines)
+
+
+def test_l4_action_uses_l4_style():
+    sink = _Sink()
+    p = OverlayPresenter(sink, ExclusionFilter(ExclusionConfig()))
+    action = MotorAction(name="click", level=Level.AUTONOMOUS,
+                         target=Target(role="AXButton", label="Delete", x=10, y=20, observed=True),
+                         declaration=Declaration(reversible=False, intent="delete everything"),
+                         params={"x": 10, "y": 20})
+    p.present_intent(action, Decision(Verdict.ALLOW, "ok"))
+    hi = next(c for c in sink.lines if isinstance(c, Highlight))
+    assert hi.style == "L4"

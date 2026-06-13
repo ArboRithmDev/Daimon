@@ -18,3 +18,10 @@ def test_gate_is_red_and_pulses():
 
 def test_unknown_style_falls_back_to_default():
     assert style_for("???") == STYLES["default"]
+
+
+def test_l4_style_exists_with_rgba_and_pulse():
+    s = style_for("L4")
+    assert "rgba" in s
+    assert len(s["rgba"]) == 4
+    assert s["pulse"] is True

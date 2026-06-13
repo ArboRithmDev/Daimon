@@ -16,7 +16,7 @@ from ..motor.types import Decision, Level, MotorAction
 from .protocol import Banner, Clear, Highlight, Ripple
 
 _LEVEL_STYLE = {Level.NONDESTRUCTIVE: "L1", Level.INPUT: "L2",
-                Level.VALIDATION: "L3", Level.AUTONOMOUS: "L2"}
+                Level.VALIDATION: "L3", Level.AUTONOMOUS: "L4"}
 
 
 class Presenter(Protocol):

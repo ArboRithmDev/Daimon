@@ -33,18 +33,24 @@ class OverlayServer:
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         srv.bind(path); srv.listen(1)
         while True:
-            conn, _ = srv.accept()
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                continue
             buf = b""
-            with conn:
-                while True:
-                    chunk = conn.recv(4096)
-                    if not chunk:
-                        break
-                    buf += chunk
-                    while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        if line.strip():
-                            self._dispatch(line.decode("utf-8"))
+            try:
+                with conn:
+                    while True:
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        buf += chunk
+                        while b"\n" in buf:
+                            line, buf = buf.split(b"\n", 1)
+                            if line.strip():
+                                self._dispatch(line.decode("utf-8"))
+            except OSError:
+                continue
 
     def _dispatch(self, line: str) -> None:
         try:

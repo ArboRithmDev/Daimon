@@ -52,3 +52,14 @@ def test_presenter_receives_observed_target(tmp_path):
 def test_no_presenter_defaults_to_null(tmp_path):
     organ = _organ(tmp_path, Level.INPUT, Target(role="AXButton", label="Cancel", observed=True))
     assert organ.act(_act())["status"] == "done"  # works with default NullPresenter
+
+
+def test_broken_presenter_does_not_break_action(tmp_path):
+    class _Broken:
+        def present_intent(self, *a): raise RuntimeError("boom")
+        def present_gate(self, *a): raise RuntimeError("boom")
+        def present_executed(self, *a): raise RuntimeError("boom")
+        def present_refused(self, *a): raise RuntimeError("boom")
+    rp = _Broken()
+    organ = _organ(tmp_path, Level.INPUT, Target(role="AXButton", label="Cancel", observed=True), presenter=rp)
+    assert organ.act(_act())["status"] == "done"
