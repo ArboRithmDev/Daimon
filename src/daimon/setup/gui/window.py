@@ -73,11 +73,13 @@ class OnboardingController:
     def show(self) -> None:
         """Build and display the onboarding window, then start the status poller."""
         from AppKit import (
+            NSApplication,
             NSWindow,
             NSWindowStyleMaskTitled,
             NSWindowStyleMaskClosable,
             NSBackingStoreBuffered,
             NSMakeRect,
+            NSFloatingWindowLevel,
         )
         from .layout import build_panel
 
@@ -90,11 +92,15 @@ class OnboardingController:
         )
         win.setTitle_("Daimon — Setup")
         win.center()
+        win.setLevel_(NSFloatingWindowLevel)   # above other apps' normal windows
 
         build_panel(self, win.contentView())
 
         win.makeKeyAndOrderFront_(None)
         self._window = win
+        # The tray runs as an accessory (no-Dock) app, so the window won't come
+        # forward or take focus unless we activate the app explicitly.
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
         self._start_poll()
 
     # ------------------------------------------------------------------

@@ -205,10 +205,14 @@ class StatusItemController:
             self._rebuild_menu()
 
         elif action_id == "run_setup":
-            from ...setup.gui.window import OnboardingController
-            from ...setup.permissions import MacOSBackend
-            self._onboard = OnboardingController(MacOSBackend())
-            self._onboard.show()
+            try:
+                from ...setup.gui.window import OnboardingController
+                from ...setup.permissions import MacOSBackend
+                self._onboard = OnboardingController(MacOSBackend())
+                self._onboard.show()
+            except Exception:
+                import traceback
+                traceback.print_exc()
 
         elif action_id == "open_config":
             try:
