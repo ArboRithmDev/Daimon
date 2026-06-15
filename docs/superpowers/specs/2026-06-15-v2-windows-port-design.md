@@ -228,3 +228,31 @@ Cœur (`guard`, `reversibility`, `consent`, `audit`, `types`, `actions`, `watchd
 | 4 | GUI onboarding | **PySide6** → une seule stack UI Qt (overlay + onboarding) |
 
 **Prochaine étape** : W0 (refacto `backends/` + sélecteur OS, zéro régression macOS), puis cycle spec → plan → impl de W1.
+
+---
+
+## 11. Statut d'implémentation (réalisé)
+
+Branche `feat/windows-port`. Les 6 phases sont livrées et commitées ; suite venv (Python 3.13) **218 passed, 1 skipped** (le skip = test transport AF_UNIX macOS, couvert sur Windows par son jumeau `_win`).
+
+| Phase | Commit | Réalisé | Validé |
+|-------|--------|---------|--------|
+| W0 | `5de4e8a` | `backends/` sélecteur ; verrou ledger `_filelock` (fcntl/msvcrt) | tests verts |
+| W1 | `c148042` | `screen_win` (WGC), `accessibility_win` (UIA), `keys_win` (VK) | **live** WGC+UIA |
+| W2 | `33cd65d` | `actuator_win` (SendInput+UIA Invoke), `prober_win`, `gate_win` (Secure Desktop) | tests sûrs ; **smoke interactif dû** |
+| W3 | `dff6bb6` | overlay Qt (WDA) + transport TCP + lifecycle réutilisé | tests ; **smoke visuel dû** |
+| W4 | `db41ba6`+`952a9dc` | userdata %APPDATA%, registry, permissions no-TCC, tray Qt, onboarding Qt | tests ; **smoke UI dû** |
+| W5 | `2adb541` | PyInstaller spec (2 exes), build PS1, Inno Setup, Authenticode, README | **build+sign chez Ben** |
+
+### Sous-décisions prises pendant l'impl (vetoables)
+- **WGC via `windows-capture`** (Rust, WGC sous le capot) au lieu du pywinrt brut — honore l'arbitrage WGC sans la douleur D3D. Dette W5 : tire `numpy`+`cv2` (poids bundle).
+- **Overlay en QWidget+QPainter** (PySide6) plutôt que QML — même stack Qt, plus robuste/testable pour ces formes, WDA direct sur le HWND. QML reste possible pour anim riches.
+- **Env dev** : venv `.venv-win` en **Python 3.13** (3.14 trop neuf pour wheels binaires, 3.12 absent).
+- **Transport overlay** : TCP loopback port fixe `49737` (AF_UNIX peu fiable en Python Windows).
+
+### Validations interactives dues (Ben — impossibles côté agent, agiraient sur l'écran réel)
+- `scripts/smoke_gate_win.py` — gate Secure Desktop (sécu-critique : vérifier qu'un `SendInput` tiers ne peut pas auto-confirmer).
+- `scripts/smoke_motor_win.py` — type/press réels (Notepad).
+- `scripts/smoke_overlay_win.py` — overlay visible + **absent d'une capture d'écran** (WDA).
+- `scripts/smoke_setup_win.py` + `python -m daimon.tray.app` — onboarding + tray.
+- `build/windows/build_windows.ps1` — build PyInstaller + signature Authenticode (cert de Ben).
