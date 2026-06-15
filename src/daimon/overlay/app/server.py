@@ -1,12 +1,17 @@
 """Socket server for the overlay process: reads command lines, applies them to
 the Scene on the AppKit main thread.
 
-Lifecycle: the overlay is a long-lived helper, but it must NOT outlive the
-client that drives it. The OverlayClient holds one persistent connection for the
-life of the MCP-server process, so when that connection drops the consumer is
-gone — the server then clears the scene and, unless a new client connects within
-a short grace window, terminates the whole overlay process. This is what stops
-orphaned overlay windows from lingering after the AI client (or Daimon) quits.
+Concurrency & lifecycle. The overlay is a single shared helper that may be
+driven by several MCP-server processes at once (one OverlayClient connection
+each, held for the life of that process). The server therefore:
+
+* keeps an accept loop running permanently and handles every connection in its
+  own thread — so a long-lived connection can never wedge `accept()` (the old
+  single-connection design did, which made liveness probes fail and the
+  launcher spawn duplicate overlays that piled up as orphans);
+* counts live connections, and when the count falls to zero clears the scene
+  and — unless a client reconnects within a short grace — terminates the whole
+  process, so no overlay window outlives its drivers.
 
 Main-thread dispatch uses PyObjCTools.AppHelper.callAfter (always available
 with pyobjc) rather than libdispatch, which requires an extra optional package.
@@ -29,13 +34,20 @@ _IDLE_GRACE = 3.0
 
 
 class OverlayServer:
-    def __init__(self, scene, flip_height: float, idle_grace: float = _IDLE_GRACE):
+    def __init__(self, scene, flip_height: float, idle_grace: float = _IDLE_GRACE,
+                 *, scheduler=None, terminate=None, main_dispatch=None):
         self._scene = scene
         self._flip = flip_height
         self._grace = idle_grace
-        # Bumped on every connect / disconnect; a pending quit timer only fires
-        # if its captured generation still matches (i.e. still idle).
+        self._lock = threading.Lock()
+        self._clients = 0
+        # Bumped whenever the client count changes; a pending quit timer only
+        # fires if its captured generation still matches (i.e. still idle).
         self._quit_gen = 0
+        # Injectable seams (tests). Defaults wire to the AppKit run loop / NSApp.
+        self._scheduler = scheduler            # (delay, fn) -> None
+        self._terminate = terminate            # () -> None
+        self._main_dispatch = main_dispatch    # (fn, arg) -> None
 
     def start(self) -> None:
         threading.Thread(target=self._serve, daemon=True).start()
@@ -47,62 +59,84 @@ class OverlayServer:
         except OSError:
             pass
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(path); srv.listen(1)
+        srv.bind(path); srv.listen(64)
         while True:
             try:
                 conn, _ = srv.accept()
             except OSError:
                 continue
-            self._client_connected()
-            buf = b""
-            try:
-                with conn:
-                    while True:
-                        chunk = conn.recv(4096)
-                        if not chunk:
-                            break
-                        buf += chunk
-                        while b"\n" in buf:
-                            line, buf = buf.split(b"\n", 1)
-                            if line.strip():
-                                self._dispatch(line.decode("utf-8"))
-            except OSError:
-                pass
-            # Client gone: wipe the scene and arm the idle-quit timer.
-            self._client_disconnected()
+            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def _handle(self, conn) -> None:
+        self._client_added()
+        buf = b""
+        try:
+            with conn:
+                while True:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    while b"\n" in buf:
+                        line, buf = buf.split(b"\n", 1)
+                        if line.strip():
+                            self._dispatch(line.decode("utf-8"))
+        except OSError:
+            pass
+        finally:
+            self._client_removed()
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def _client_connected(self) -> None:
-        # Cancel any pending quit — a driver is present again.
-        self._quit_gen += 1
+    def _client_added(self) -> None:
+        with self._lock:
+            self._clients += 1
+            self._quit_gen += 1  # cancel any pending idle quit
 
-    def _client_disconnected(self) -> None:
-        self._on_main(self._scene.apply, Clear())
-        self._arm_quit()
+    def _client_removed(self) -> None:
+        with self._lock:
+            self._clients = max(0, self._clients - 1)
+            idle = self._clients == 0
+        if idle:
+            # No drivers left: clear the scene and arm the idle-quit timer.
+            self._on_main(self._scene.apply, Clear())
+            self._arm_quit()
 
     def _arm_quit(self) -> None:
-        """Terminate the overlay process after the idle grace, unless a client
-        (re)connects first (which bumps _quit_gen and invalidates this timer)."""
-        self._quit_gen += 1
-        gen = self._quit_gen
+        with self._lock:
+            self._quit_gen += 1
+            gen = self._quit_gen
 
         def _fire():
-            if self._quit_gen != gen:
+            with self._lock:
+                stale = self._quit_gen != gen or self._clients > 0
+            if stale:
                 return  # a client connected in the meantime
-            try:
-                from AppKit import NSApp
-                NSApp().terminate_(None)
-            except Exception:
-                os._exit(0)
+            self._do_terminate()
 
+        self._schedule(self._grace, _fire)
+
+    def _schedule(self, delay, fn) -> None:
+        if self._scheduler is not None:
+            self._scheduler(delay, fn)
+            return
         try:
             from PyObjCTools import AppHelper
-            AppHelper.callLater(self._grace, _fire)
+            AppHelper.callLater(delay, fn)
         except Exception:
-            _fire()
+            fn()
+
+    def _do_terminate(self) -> None:
+        if self._terminate is not None:
+            self._terminate()
+            return
+        try:
+            from AppKit import NSApp
+            NSApp().terminate_(None)
+        except Exception:
+            os._exit(0)
 
     # ------------------------------------------------------------------
     # Dispatch
@@ -118,6 +152,9 @@ class OverlayServer:
         self._on_main(self._scene.apply, flipped)
 
     def _on_main(self, fn, arg) -> None:
+        if self._main_dispatch is not None:
+            self._main_dispatch(fn, arg)
+            return
         try:
             from PyObjCTools import AppHelper
             AppHelper.callAfter(fn, arg)
