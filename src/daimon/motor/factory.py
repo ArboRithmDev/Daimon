@@ -17,9 +17,6 @@ from .guard import PolicyGuard
 from .organ import MotorOrgan
 from ..userdata import config_dir, logs_dir
 
-_LOGS = logs_dir()
-_STATE = config_dir() / "motor.state.json"
-
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -27,14 +24,16 @@ def _now() -> str:
 
 def build_consent() -> ConsentManager:
     mcfg = load_motor_config()
-    _LOGS.mkdir(parents=True, exist_ok=True)
-    _STATE.parent.mkdir(parents=True, exist_ok=True)
+    logs = logs_dir()
+    state = config_dir() / "motor.state.json"
+    logs.mkdir(parents=True, exist_ok=True)
+    state.parent.mkdir(parents=True, exist_ok=True)
     return ConsentManager(
         config_ceiling=mcfg.ceiling,
         engagement_phrase=mcfg.engagement_phrase,
         disengagement_phrase=mcfg.disengagement_phrase,
-        ledger=AppendOnlyLedger(_LOGS / "consent.jsonl"),
-        state_path=_STATE,
+        ledger=AppendOnlyLedger(logs / "consent.jsonl"),
+        state_path=state,
     )
 
 
@@ -42,7 +41,8 @@ def build_organ() -> MotorOrgan:
     consent = build_consent()
     exclusions = ExclusionFilter(load_exclusions().exclusions)
     guard = PolicyGuard(exclusions, ceiling_provider=consent.current_ceiling)
-    _LOGS.mkdir(parents=True, exist_ok=True)
+    logs = logs_dir()
+    logs.mkdir(parents=True, exist_ok=True)
     ocfg = load_overlay_config()
     if ocfg.enabled:
         launcher = backends.build_overlay_launcher()
@@ -54,7 +54,7 @@ def build_organ() -> MotorOrgan:
         guard=guard,
         gate=backends.build_gate(),
         actuator=backends.build_actuator(),
-        session_log=AppendOnlyLedger(_LOGS / "session.jsonl"),
+        session_log=AppendOnlyLedger(logs / "session.jsonl"),
         clock=_now,
         prober=backends.build_prober(),
         presenter=presenter,

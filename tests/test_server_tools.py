@@ -1,14 +1,10 @@
 import asyncio
-import sys
-
-import pytest
 
 from daimon.server import build_server
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="full build_server writes under userdata; clean Windows wiring lands in W4")
-def test_server_exposes_full_toolset():
+def test_server_exposes_full_toolset(tmp_path, monkeypatch):
+    monkeypatch.setenv("DAIMON_DATA_DIR", str(tmp_path))  # no real-home pollution
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     expected = {
         "vue_displays", "vue_snapshot", "touche_tree", "touche_probe",

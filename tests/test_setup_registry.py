@@ -1,7 +1,4 @@
-import sys
 from pathlib import Path
-
-import pytest
 
 from daimon.setup.clients.registry import adapters_for_home, detected
 
@@ -14,25 +11,21 @@ def test_adapters_cover_known_clients():
             "Antigravity CLI", "Codex", "Mistral Vibe"} <= names
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="POSIX-path assertions; client paths + registry_win land in W4")
 def test_new_clients_have_correct_format():
     home = Path("/Users/test")
     by = {a.name: a for a in adapters_for_home(home)}
     assert by["Codex"].fmt == "toml-table"
-    assert str(by["Codex"].config_path).endswith(".codex/config.toml")
+    assert by["Codex"].config_path == home / ".codex" / "config.toml"
     assert by["Mistral Vibe"].fmt == "toml-array"
     assert by["GitHub Copilot CLI"].fmt == "json"
-    assert "antigravity/mcp_config.json" in str(by["Antigravity Desktop"].config_path)
+    assert by["Antigravity Desktop"].config_path == home / ".gemini" / "antigravity" / "mcp_config.json"
 
 
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="POSIX-path assertions; client paths + registry_win land in W4")
 def test_paths_are_under_home():
     home = Path("/Users/test")
     by = {a.name: a for a in adapters_for_home(home)}
-    assert str(by["Claude Code"].config_path).startswith("/Users/test")
-    assert "claude_desktop_config.json" in str(by["Claude Desktop"].config_path)
+    assert str(by["Claude Code"].config_path).startswith(str(home))
+    assert by["Claude Desktop"].config_path.name == "claude_desktop_config.json"
 
 
 def test_detected_filters_by_existence(tmp_path):

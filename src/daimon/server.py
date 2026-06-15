@@ -212,8 +212,9 @@ def _record_permission_status() -> None:
     TCC attaches to the launching client, not Daimon.app — only the server,
     running under that client, sees the true status."""
     try:
-        from .setup.permissions import MacOSBackend, record_status
-        record_status(MacOSBackend())
+        from . import backends
+        from .setup.permissions import record_status
+        record_status(backends.build_permissions_backend())
     except Exception:
         pass  # never block the server on a marker write
 

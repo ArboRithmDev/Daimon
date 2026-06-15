@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from .base import ClientAdapter
 
 
+def _app_support(home: Path) -> Path:
+    """Per-OS roaming app-data dir where GUI clients keep their config."""
+    if sys.platform == "win32":
+        return home / "AppData" / "Roaming"
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support"
+    return home / ".config"
+
+
 def adapters_for_home(home: Path) -> list[ClientAdapter]:
-    appsup = home / "Library" / "Application Support"
+    appsup = _app_support(home)
     gemini = home / ".gemini"
     return [
         # --- JSON mcpServers clients ---

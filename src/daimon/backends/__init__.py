@@ -101,10 +101,11 @@ def build_overlay_launcher():
 # --- Permissions (wired in W4) ---------------------------------------------
 
 def build_permissions_backend():
-    """OS permission status backend (TCC on macOS; no-op + UIPI on Windows)."""
+    """OS permission status backend (TCC on macOS; no-op on Windows — no gate)."""
     if sys.platform == "darwin":
         from ..setup.permissions import MacOSBackend
         return MacOSBackend()
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: permissions (W4)")
+        from ..setup.permissions import WindowsBackend
+        return WindowsBackend()
     raise _unsupported()
