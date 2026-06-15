@@ -27,6 +27,7 @@ _BLOCK_RE = re.compile(re.escape(_MARK_START) + r".*?" + re.escape(_MARK_END) + 
 
 @dataclass(frozen=True)
 class ClientAdapter:
+    """One AI client: where its config lives and which format (json/toml) it uses."""
     name: str
     config_path: Path
     key: str = "mcpServers"
@@ -34,12 +35,14 @@ class ClientAdapter:
     fmt: str = "json"   # json | toml-table | toml-array
 
     def detect(self) -> bool:
+        """True if any detect path exists, i.e. this client is installed."""
         paths = self.detect_paths or (self.config_path,)
         return any(Path(p).exists() for p in paths)
 
 
 @dataclass(frozen=True)
 class Result:
+    """Outcome of an install/uninstall/status op against one client."""
     client: str
     action: str   # installed|already|removed|absent|present|not_found|error
     detail: str = ""
@@ -126,6 +129,7 @@ def _status_toml(adapter: ClientAdapter) -> Result:
 
 
 def install(adapter: ClientAdapter, name: str, entry: dict, *, ts: str = "0") -> Result:
+    """Register *entry* under *name*; idempotent, backed-up, atomic."""
     if adapter.fmt in ("toml-table", "toml-array"):
         return _install_toml(adapter, name, entry, ts)
     try:
@@ -143,6 +147,7 @@ def install(adapter: ClientAdapter, name: str, entry: dict, *, ts: str = "0") ->
 
 
 def uninstall(adapter: ClientAdapter, name: str, *, ts: str = "0") -> Result:
+    """Remove *name* from the client config; backed-up and atomic (reversible)."""
     if adapter.fmt in ("toml-table", "toml-array"):
         return _uninstall_toml(adapter, ts)
     try:
@@ -158,6 +163,7 @@ def uninstall(adapter: ClientAdapter, name: str, *, ts: str = "0") -> Result:
 
 
 def status(adapter: ClientAdapter, name: str) -> Result:
+    """Report whether *name* is currently registered in the client config."""
     if adapter.fmt in ("toml-table", "toml-array"):
         return _status_toml(adapter)
     try:

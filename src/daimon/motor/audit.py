@@ -19,6 +19,8 @@ _GENESIS = "0" * 64
 
 
 class AppendOnlyLedger:
+    """Hash-chained append-only log; any edit to a past record breaks the chain."""
+
     def __init__(self, path) -> None:
         self.path = Path(path)
 
@@ -37,6 +39,7 @@ class AppendOnlyLedger:
         return hashlib.sha256((prev + canonical).encode("utf-8")).hexdigest()
 
     def append(self, entry: dict) -> str:
+        """Atomically link a new record into the chain under an exclusive file lock."""
         import fcntl
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a+", encoding="utf-8") as f:
@@ -55,6 +58,7 @@ class AppendOnlyLedger:
         return h
 
     def verify(self) -> bool:
+        """Re-walk the chain and report whether any record was tampered with."""
         prev = _GENESIS
         for record in self._records():
             stored = record.get("hash")

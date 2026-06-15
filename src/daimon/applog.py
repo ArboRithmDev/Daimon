@@ -9,6 +9,7 @@ from __future__ import annotations
 
 
 def log_path():
+    """Path to the GUI app log file under the user data dir."""
     from .userdata import logs_dir
     return logs_dir() / "daimon-app.log"
 

@@ -6,6 +6,7 @@ import sys
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Dispatch onboarding to the GUI flow (--gui) or the CLI flow."""
     argv = sys.argv[1:] if argv is None else argv
     if "--gui" in argv:
         from .setup.gui.__main__ import main as gui_main

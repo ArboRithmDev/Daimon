@@ -7,6 +7,7 @@ from .wizard import IO, Step, Wizard
 
 
 class ConsoleIO:
+    """IO that prints to stdout and sleeps for real (CLI front-end)."""
     def say(self, message: str) -> None:
         print(message)
     def wait(self, seconds: float) -> None:
@@ -28,10 +29,12 @@ def _step_for(backend, perm: Permission) -> Step:
 
 
 def build_wizard(backend) -> Wizard:
+    """Build a Wizard with one step per missing macOS permission."""
     return Wizard([_step_for(backend, p) for p in permissions_status(backend)])
 
 
 def run_onboarding(*, backend=None, io: IO | None = None, max_polls: int = 30) -> int:
+    """Run the permission wizard; return 0 if all granted, 1 otherwise."""
     backend = backend or MacOSBackend()
     io = io or ConsoleIO()
     ok = build_wizard(backend).run(io, max_polls=max_polls)

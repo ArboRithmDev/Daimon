@@ -25,6 +25,7 @@ def _print(msg: str) -> None:
 
 
 def _targets(adapters, client_filter=None):
+    """Detected adapters, optionally narrowed to a single --client NAME."""
     adapters = adapters if adapters is not None else default_adapters()
     result = detected(adapters)
     if client_filter is not None:
@@ -43,6 +44,7 @@ def _parse_client_filter(rest: list[str]) -> str | None:
 
 
 def cmd_status(adapters, client_filter=None) -> int:
+    """Print each detected client and whether Daimon is registered there."""
     targets = _targets(adapters, client_filter)
     if not targets:
         _print("  (no supported AI clients detected)")
@@ -55,6 +57,7 @@ def cmd_status(adapters, client_filter=None) -> int:
 
 
 def cmd_install(adapters, client_filter=None) -> int:
+    """Register Daimon into each detected client (idempotent, backed-up)."""
     targets = _targets(adapters, client_filter)
     if not targets:
         _print("  (no supported AI clients detected)")
@@ -68,6 +71,7 @@ def cmd_install(adapters, client_filter=None) -> int:
 
 
 def cmd_uninstall(adapters, client_filter=None) -> int:
+    """Remove Daimon's entry from each detected client (reversible)."""
     targets = _targets(adapters, client_filter)
     if not targets:
         _print("  (no supported AI clients detected)")
@@ -80,6 +84,7 @@ def cmd_uninstall(adapters, client_filter=None) -> int:
 
 
 def run_command(argv, *, adapters=None, backend=None, io=None) -> int:
+    """Dispatch a `daimon` subcommand; backends injectable for testing."""
     if not argv:
         _print("Usage: daimon [setup|install|uninstall|status|onboard]")
         return 2

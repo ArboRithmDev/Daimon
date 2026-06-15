@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="currentColor" aria-label="Daimon menu-bar glyph">
+  <circle cx="256" cy="256" r="168" fill="none" stroke="currentColor" stroke-width="34"></circle>
+  <polygon points="217.65,202.28 283.35,195.93 321.69,249.65 294.35,309.72 228.65,316.07 190.31,262.35" fill="currentColor"></polygon>
+  <line x1="256" y1="60" x2="256" y2="16" stroke="currentColor" stroke-width="30" stroke-linecap="round"></line><line x1="452" y1="256" x2="496" y2="256" stroke="currentColor" stroke-width="30" stroke-linecap="round"></line><line x1="256" y1="452" x2="256" y2="496" stroke="currentColor" stroke-width="30" stroke-linecap="round"></line><line x1="60" y1="256" x2="16" y2="256" stroke="currentColor" stroke-width="30" stroke-linecap="round"></line>
+</svg>

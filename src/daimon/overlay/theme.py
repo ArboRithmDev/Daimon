@@ -16,4 +16,5 @@ STYLES: dict[str, dict] = {
 
 
 def style_for(name: str) -> dict:
+    """Resolve a style/level name to its visual spec, falling back to default."""
     return STYLES.get(name, STYLES["default"])

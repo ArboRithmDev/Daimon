@@ -8,6 +8,7 @@ from .base import ClientAdapter
 
 
 def adapters_for_home(home: Path) -> list[ClientAdapter]:
+    """All known client adapters, resolved against *home* (testable seam)."""
     appsup = home / "Library" / "Application Support"
     gemini = home / ".gemini"
     return [
@@ -38,8 +39,10 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
 
 
 def default_adapters() -> list[ClientAdapter]:
+    """Adapters resolved against the real user home."""
     return adapters_for_home(Path.home())
 
 
 def detected(adapters: list[ClientAdapter]) -> list[ClientAdapter]:
+    """Subset of *adapters* whose client is actually installed."""
     return [a for a in adapters if a.detect()]

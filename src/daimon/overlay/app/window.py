@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 def make_overlay_window(anti_feedback: bool = True):
+    """Build the full-screen borderless overlay window and order it onscreen."""
     from AppKit import (
         NSWindow, NSScreen, NSColor, NSWindowStyleMaskBorderless,
         NSBackingStoreBuffered, NSWindowCollectionBehaviorCanJoinAllSpaces,

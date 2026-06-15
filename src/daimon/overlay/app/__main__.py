@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 def main() -> None:
+    """Acquire the singleton socket, build the window/scene/server, run AppKit."""
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     from PyObjCTools import AppHelper
     from ...config import load_overlay_config

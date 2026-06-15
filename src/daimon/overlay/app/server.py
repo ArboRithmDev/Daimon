@@ -36,6 +36,7 @@ _STARTUP_GRACE = 60.0
 
 
 class OverlayServer:
+    """Accepts client connections, applies commands to the Scene, self-reaps idle."""
     def __init__(self, scene, flip_height: float, idle_grace: float = _IDLE_GRACE,
                  *, listen_sock=None, startup_grace: float = _STARTUP_GRACE,
                  scheduler=None, terminate=None, main_dispatch=None):
@@ -55,6 +56,7 @@ class OverlayServer:
         self._main_dispatch = main_dispatch    # (fn, arg) -> None
 
     def start(self) -> None:
+        """Launch the accept loop on a daemon thread."""
         threading.Thread(target=self._serve, daemon=True).start()
 
     def _serve(self) -> None:

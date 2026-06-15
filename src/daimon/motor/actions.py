@@ -13,6 +13,8 @@ from .types import Level
 
 @dataclass(frozen=True)
 class ActionDef:
+    """Maps an exposed tool verb to its nominal authorization level."""
+
     tool_name: str
     level: Level
     gesture: str  # human-readable description
@@ -35,4 +37,5 @@ ACTIONS: dict[str, ActionDef] = {
 
 
 def level_for(tool_name: str) -> Level:
+    """Look up the nominal authorization level for a tool verb."""
     return ACTIONS[tool_name].level

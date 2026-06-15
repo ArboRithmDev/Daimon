@@ -17,6 +17,8 @@ class Level(IntEnum):
 
 
 class Verdict(IntEnum):
+    """The guard's ruling on an action."""
+
     REFUSE = 0
     GATE = 1   # requires human confirmation
     ALLOW = 2
@@ -44,6 +46,8 @@ class Declaration:
 
 @dataclass(frozen=True)
 class MotorAction:
+    """One requested gesture: the verb, its level, target, and the AI's declaration."""
+
     name: str                 # "click" | "type" | "drag" | "press" | "navigate"
     level: Level
     target: Target
@@ -53,12 +57,16 @@ class MotorAction:
 
 @dataclass(frozen=True)
 class Reversibility:
+    """Daimon's own point-of-no-return verdict on an action's target."""
+
     irreversible: bool
     reason: str
 
 
 @dataclass(frozen=True)
 class Decision:
+    """The guard's verdict plus whether the action must be logged before acting."""
+
     verdict: Verdict
     reason: str
     must_log: bool = False

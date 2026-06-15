@@ -24,9 +24,12 @@ from .base import Sense
 
 
 class Vue(Sense):
+    """Read-only sight sense: serves screen pixels, gated and redacted first."""
+
     name = "vue"
 
     def register(self, mcp) -> None:
+        """Expose the display-list and snapshot tools on the FastMCP server."""
         @mcp.tool(
             name="vue_displays",
             description=(

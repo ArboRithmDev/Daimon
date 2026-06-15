@@ -21,6 +21,7 @@ _BUNDLE_DAIMON = Path("/Applications/Daimon.app/Contents/MacOS/Daimon")
 
 
 def daimon_command() -> dict:
+    """Resolve the command+args an MCP client runs to start `daimon serve`."""
     if _BUNDLE_DAIMON.exists():
         return {"command": str(_BUNDLE_DAIMON), "args": ["serve"], "env": {}}
     exe = shutil.which("daimon")

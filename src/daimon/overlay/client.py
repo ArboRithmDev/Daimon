@@ -12,6 +12,8 @@ from .protocol import encode
 
 
 class OverlayClient:
+    """Lazily-connecting sender; drops commands rather than block or raise."""
+
     def __init__(self, socket_path: str, connect_timeout: float = 0.05) -> None:
         self._path = socket_path
         self._timeout = connect_timeout
@@ -29,6 +31,7 @@ class OverlayClient:
             self._sock = None
 
     def send(self, command) -> None:
+        """Encode and push a command; silently reset the socket on any error."""
         self._ensure()
         if self._sock is None:
             return

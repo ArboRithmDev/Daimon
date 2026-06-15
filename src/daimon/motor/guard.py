@@ -18,6 +18,8 @@ from .types import Decision, Level, MotorAction, Verdict
 
 
 class PolicyGuard:
+    """The single chokepoint enforcing ceiling, exclusions, and the human gate."""
+
     def __init__(
         self,
         exclusions: ExclusionFilter,
@@ -29,6 +31,7 @@ class PolicyGuard:
         self._classify = classifier
 
     def evaluate(self, action: MotorAction) -> Decision:
+        """Decide REFUSE/GATE/ALLOW; the stricter of AI vs Daimon reversibility wins."""
         ceiling = self._ceiling()
 
         if action.level > ceiling:

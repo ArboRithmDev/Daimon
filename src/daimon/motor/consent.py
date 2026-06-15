@@ -18,6 +18,8 @@ from .types import Level
 
 
 class ConsentManager:
+    """L4 engagement state machine: ceiling rises only with ledgered human consent."""
+
     def __init__(
         self,
         config_ceiling: Level,
@@ -45,11 +47,13 @@ class ConsentManager:
         return records[-1].get("event") if records else None
 
     def current_ceiling(self) -> Level:
+        """L4 only when both the state flag and the last ledger event agree; else config."""
         if self._engaged() and self._last_ledger_event() == "engage_l4":
             return Level.AUTONOMOUS
         return self._config_ceiling
 
     def engage(self, typed: str, *, ts: str) -> bool:
+        """Unlock L4 only on the exact phrase; record the consent in the ledger."""
         if typed.strip() != self._engagement_phrase:
             return False
         self._ledger.append({"event": "engage_l4", "ts": ts, "phrase": typed.strip()})
@@ -57,6 +61,7 @@ class ConsentManager:
         return True
 
     def disengage(self, typed: str, *, ts: str) -> bool:
+        """Drop back to the config ceiling on the exact phrase; record it in the ledger."""
         if typed.strip() != self._disengagement_phrase:
             return False
         self._ledger.append({"event": "disengage_l4", "ts": ts})

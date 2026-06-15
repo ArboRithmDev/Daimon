@@ -17,6 +17,7 @@ from pathlib import Path
 
 
 def data_dir() -> Path:
+    """The per-user writable root for Daimon's config, state, and logs."""
     env = os.environ.get("DAIMON_DATA_DIR")
     if env:
         return Path(env).expanduser()
@@ -24,8 +25,10 @@ def data_dir() -> Path:
 
 
 def config_dir() -> Path:
+    """Where the live (writable) config files live."""
     return data_dir() / "config"
 
 
 def logs_dir() -> Path:
+    """Where the audit and app logs are written."""
     return data_dir() / "logs"

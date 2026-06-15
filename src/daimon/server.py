@@ -20,6 +20,7 @@ from .senses.vue import Vue
 
 
 def _register_overlay(mcp) -> None:
+    """Wire the optional HUD overlay tools onto the server."""
     from .config import load_overlay_config
     from .overlay import launcher
     from .overlay.client import OverlayClient
@@ -29,31 +30,37 @@ def _register_overlay(mcp) -> None:
 
     @mcp.tool(name="overlay_highlight", description="Outline a screen rect with an optional label.")
     def overlay_highlight(x: int, y: int, width: int, height: int, label: str = "") -> dict:
+        """Outline a screen rect."""
         client.send(Highlight(x=x, y=y, w=width, h=height, label=label))
         return {"ok": True}
 
     @mcp.tool(name="overlay_spotlight", description="Dim everything except a screen rect (focus).")
     def overlay_spotlight(x: int, y: int, width: int, height: int) -> dict:
+        """Dim everything but one rect."""
         client.send(Spotlight(x=x, y=y, w=width, h=height))
         return {"ok": True}
 
     @mcp.tool(name="overlay_cursor", description="Move the overlay cursor halo to (x,y).")
     def overlay_cursor(x: int, y: int) -> dict:
+        """Move the cursor halo."""
         client.send(Cursor(x=x, y=y))
         return {"ok": True}
 
     @mcp.tool(name="overlay_banner", description="Show a HUD banner message.")
     def overlay_banner(text: str, level: str = "L1") -> dict:
+        """Show a HUD banner."""
         client.send(Banner(text=text, level=level))
         return {"ok": True}
 
     @mcp.tool(name="overlay_clear", description="Clear all overlay drawings.")
     def overlay_clear() -> dict:
+        """Clear all overlay drawings."""
         client.send(Clear())
         return {"ok": True}
 
 
 def _register_motor(mcp) -> None:
+    """Wire the motor (hands) action tools onto the server."""
     organ = build_organ()
 
     def _target(x, y, role, label):
@@ -70,6 +77,7 @@ def _register_motor(mcp) -> None:
     def main_click(x: int, y: int, intent: str, reversible: bool = True,
                    button: str = "left", count: int = 1, modifiers: list[str] | None = None,
                    role: str = "", label: str = "") -> dict:
+        """Click an element or coordinate."""
         return organ.act(MotorAction(
             name="click", level=level_for("main_click"),
             target=_target(x, y, role or None, label or None),
@@ -84,6 +92,7 @@ def _register_motor(mcp) -> None:
     )
     def main_type(text: str, intent: str, reversible: bool = True,
                   role: str = "", label: str = "") -> dict:
+        """Type text into the focused field."""
         return organ.act(MotorAction(
             name="type", level=level_for("main_type"),
             target=_target(None, None, role or None, label or None),
@@ -100,6 +109,7 @@ def _register_motor(mcp) -> None:
     )
     def main_press(x: int, y: int, intent: str, reversible: bool = False,
                    role: str = "", label: str = "") -> dict:
+        """Activate a button via the Accessibility API."""
         return organ.act(MotorAction(
             name="press", level=level_for("main_press"),
             target=_target(x, y, role or None, label or None),
@@ -112,6 +122,7 @@ def _register_motor(mcp) -> None:
         description="Non-destructive navigation: scroll by scroll_y pixels at the focused view.",
     )
     def main_navigate(intent: str, scroll_y: int = 0) -> dict:
+        """Scroll the focused view (non-destructive)."""
         return organ.act(MotorAction(
             name="navigate", level=level_for("main_navigate"),
             target=Target(),
@@ -125,6 +136,7 @@ def _register_motor(mcp) -> None:
         "confirmation."))
     def main_key(key: str, intent: str, modifiers: list[str] | None = None,
                  count: int = 1, reversible: bool = True) -> dict:
+        """Send a discrete key or chord."""
         mods = modifiers or []
         keystr = "+".join([*mods, key])
         return organ.act(MotorAction(
@@ -135,12 +147,14 @@ def _register_motor(mcp) -> None:
 
     @mcp.tool(name="main_hover", description="Move the pointer to (x,y) without clicking (reveal tooltips/menus).")
     def main_hover(x: int, y: int, intent: str) -> dict:
+        """Move the pointer without clicking."""
         return organ.act(MotorAction(
             name="hover", level=level_for("main_hover"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
 
     @mcp.tool(name="main_activate", description="Bring an app/window frontmost by bundle id, title, or pid.")
     def main_activate(intent: str, bundle: str = "", title: str = "", pid: int = 0) -> dict:
+        """Bring an app or window frontmost."""
         params = {k: v for k, v in (("bundle", bundle), ("title", title), ("pid", pid)) if v}
         return organ.act(MotorAction(
             name="activate", level=level_for("main_activate"), target=Target(),
@@ -151,6 +165,7 @@ def _register_motor(mcp) -> None:
         "classified for reversibility (e.g. dropping on Trash gates)."))
     def main_drag(from_x: int, from_y: int, to_x: int, to_y: int, intent: str,
                   button: str = "left", reversible: bool = True) -> dict:
+        """Drag from one point to another."""
         return organ.act(MotorAction(
             name="drag", level=level_for("main_drag"), target=Target(),
             declaration=Declaration(reversible=reversible, intent=intent),
@@ -162,12 +177,14 @@ def _register_motor(mcp) -> None:
         "primitive — only runs at L4 (full autonomy). Auto-released by a watchdog "
         "if never followed by main_mouse_up."))
     def main_mouse_down(x: int, y: int, intent: str) -> dict:
+        """Press and hold the mouse button (L4 primitive)."""
         return organ.act(MotorAction(
             name="mouse_down", level=level_for("main_mouse_down"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
 
     @mcp.tool(name="main_mouse_up", description="Low-level: release the held left mouse button at (x,y).")
     def main_mouse_up(x: int, y: int, intent: str) -> dict:
+        """Release the held mouse button."""
         return organ.act(MotorAction(
             name="mouse_up", level=level_for("main_mouse_up"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
@@ -176,6 +193,7 @@ def _register_motor(mcp) -> None:
         "Low-level: press and hold a key. Advanced primitive — L4 only. "
         "Auto-released by a watchdog."))
     def main_key_down(key: str, intent: str, modifiers: list[str] | None = None) -> dict:
+        """Press and hold a key (L4 primitive)."""
         return organ.act(MotorAction(
             name="key_down", level=level_for("main_key_down"), target=Target(),
             declaration=Declaration(reversible=True, intent=intent),
@@ -183,12 +201,14 @@ def _register_motor(mcp) -> None:
 
     @mcp.tool(name="main_key_up", description="Low-level: release a held key.")
     def main_key_up(key: str, intent: str) -> dict:
+        """Release a held key."""
         return organ.act(MotorAction(
             name="key_up", level=level_for("main_key_up"), target=Target(),
             declaration=Declaration(reversible=True, intent=intent), params={"key": key}))
 
 
 def build_server() -> FastMCP:
+    """Assemble the FastMCP server with every sense and organ registered."""
     config = load_config()
     exclusions = ExclusionFilter(config.exclusions)
 
@@ -220,6 +240,7 @@ def _record_permission_status() -> None:
 
 
 def main() -> None:
+    """Entry point: record TCC status, then run the stdio server."""
     _record_permission_status()
     build_server().run()  # stdio transport by default
 

@@ -139,5 +139,6 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
 # Back-compat alias: the main display is index 0 in practice for single-screen
 # setups; callers wanting "the primary" can pass the main display's index.
 def capture_main_display(max_width: int | None = 1600) -> Frame:
+    """Capture the primary display, falling back to index 0 if none is flagged main."""
     main = next((d for d in list_displays() if d.is_main), None)
     return capture_display(main.index if main else 0, max_width=max_width)

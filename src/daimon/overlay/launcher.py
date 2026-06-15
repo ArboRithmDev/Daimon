@@ -16,6 +16,7 @@ _lock_fd = None
 
 
 def socket_path() -> str:
+    """The one socket path every overlay client and server must agree on."""
     # Must be IDENTICAL for every process that talks to the overlay, regardless
     # of how it was launched. $TMPDIR is NOT — a client started without it lands
     # in /tmp while one with it lands in /var/folders/…, so the two bound
@@ -95,5 +96,6 @@ def _spawn() -> None:
 
 
 def ensure_running() -> None:
+    """Spawn the overlay helper if no live one is already listening."""
     if not _socket_alive(socket_path()):
         _spawn()

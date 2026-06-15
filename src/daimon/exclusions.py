@@ -24,6 +24,8 @@ class ExclusionResult:
 
 
 class ExclusionFilter:
+    """Evaluates exclusion rules and redacts perception data before serving."""
+
     def __init__(self, config: ExclusionConfig) -> None:
         self._config = config
         self._title_patterns = tuple(re.compile(p) for p in config.window_titles)
@@ -32,6 +34,7 @@ class ExclusionFilter:
 
     # -- app-level gate ---------------------------------------------------
     def is_app_excluded(self, bundle_id: str | None) -> bool:
+        """True if the given app bundle id is on the exclusion list."""
         return bool(bundle_id) and bundle_id in self._config.apps
 
     def evaluate_frontmost(self, bundle_id: str | None) -> ExclusionResult:
@@ -42,6 +45,7 @@ class ExclusionFilter:
 
     # -- title-level gate -------------------------------------------------
     def is_title_excluded(self, title: str | None) -> bool:
+        """True if the window title matches any exclusion pattern."""
         if not title:
             return False
         return any(p.search(title) for p in self._title_patterns)
@@ -68,6 +72,7 @@ class ExclusionFilter:
     # -- region redaction -------------------------------------------------
     @property
     def regions(self) -> tuple[Rect, ...]:
+        """The fixed exclusion rectangles to black out."""
         return self._config.regions
 
     def redact_image(self, image):  # image: PIL.Image.Image

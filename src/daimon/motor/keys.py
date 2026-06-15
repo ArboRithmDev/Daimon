@@ -28,10 +28,12 @@ _MOD_FLAGS = {
 
 
 def keycode_for(name: str) -> int:
+    """Resolve a key name to its macOS virtual keycode."""
     return KEYCODES[name.strip().lower()]
 
 
 def modifier_mask(modifiers: list[str]) -> int:
+    """Combine modifier names into a single CGEventFlags bit mask."""
     mask = 0
     for m in modifiers or []:
         mask |= _MOD_FLAGS[m.strip().lower()]
