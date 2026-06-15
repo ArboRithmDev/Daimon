@@ -1,6 +1,6 @@
 [project]
 name = "daimon"
-version = "0.0.5"
+version = "0.0.6"
 description = "Daimon — a local sensory organ on macOS. Exposes screen perception (Vue, Touché) to any AI client over MCP. Agnostic by design; it never calls an AI itself."
 readme = "README.md"
 requires-python = ">=3.12"

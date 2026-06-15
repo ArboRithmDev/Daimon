@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
 import socket
 import subprocess
 import sys
 
 from ..userdata import data_dir
+
+# Held for the overlay process's entire lifetime so the kernel keeps the
+# singleton flock; closing this fd (or the process dying) releases the lock.
+_lock_fd = None
 
 
 def socket_path() -> str:
@@ -33,36 +38,39 @@ def _socket_alive(path: str) -> bool:
 
 
 def bind_singleton(path: str):
-    """Atomically acquire the overlay socket as a singleton lock.
+    """Acquire the overlay socket as a singleton, arbitrated by a kernel flock.
 
-    Returns a *listening* socket if this process is the sole owner, or None if
-    another live overlay already owns the path. The bound socket node IS the
-    lock: bind() is an atomic filesystem create, so of N racing overlays exactly
-    one wins; the losers see EADDRINUSE, confirm a live owner, and bow out
-    WITHOUT unlinking (the old unconditional os.unlink let a loser stomp the
-    winner's path, leaving the winner alive but client-less forever).
+    Returns a *listening* socket if this process is the sole overlay, or None if
+    another overlay already holds the lock (the caller must then exit).
+
+    A non-blocking exclusive flock on ``<path>.lock`` is the gate: of N racing
+    overlays the kernel grants it to exactly one — no bind/unlink/connect dance,
+    so no race can leave two overlays alive. Only the lock holder ever touches
+    the socket node, so reclaiming a stale socket is safe. The lock releases
+    automatically when the holder dies (the fd is closed by the OS).
     """
+    global _lock_fd
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
     except OSError:
         pass
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+    fd = os.open(path + ".lock", os.O_CREAT | os.O_RDWR, 0o600)
     try:
-        s.bind(path)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
-        if _socket_alive(path):
-            s.close()
-            return None  # a live overlay owns it → caller must exit
-        # Stale socket file (previous overlay crashed): reclaim it.
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
-        try:
-            s.bind(path)
-        except OSError:
-            s.close()
-            return None
+        os.close(fd)
+        return None  # another overlay holds the lock → this one must exit
+    _lock_fd = fd    # keep the lock for the life of the process
+
+    # Sole owner: it is now safe to (re)create the socket node unconditionally,
+    # clearing any stale file a crashed predecessor left behind.
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.bind(path)
     s.listen(64)
     return s
 

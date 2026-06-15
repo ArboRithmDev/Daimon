@@ -10,32 +10,40 @@ def _short_sock(name: str) -> str:
     return f"/tmp/daimon-test-{name}-{os.getpid()}.sock"
 
 
-def test_bind_singleton_is_exclusive():
-    path = _short_sock("excl")
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
-    first = launcher.bind_singleton(path)
-    assert first is not None, "first caller acquires the socket"
-    try:
-        # A racing second overlay must NOT acquire it, and must NOT unlink it.
-        assert launcher.bind_singleton(path) is None
-        assert os.path.exists(path), "loser must not stomp the winner's socket"
-    finally:
-        first.close()
+def _release_lock():
+    """Drop the module-held singleton flock between assertions/tests."""
+    if launcher._lock_fd is not None:
+        os.close(launcher._lock_fd)
+        launcher._lock_fd = None
+
+
+def _cleanup(path):
+    for p in (path, path + ".lock"):
         try:
-            os.unlink(path)
+            os.unlink(p)
         except OSError:
             pass
 
 
+def test_bind_singleton_is_exclusive():
+    path = _short_sock("excl")
+    _release_lock(); _cleanup(path)
+    first = launcher.bind_singleton(path)
+    assert first is not None, "first caller acquires the socket"
+    try:
+        # A racing second overlay must NOT acquire it (the flock is held), and
+        # must NOT stomp the winner's socket.
+        assert launcher.bind_singleton(path) is None
+        assert os.path.exists(path), "loser must not touch the winner's socket"
+    finally:
+        first.close()
+        _release_lock()
+        _cleanup(path)
+
+
 def test_bind_singleton_reclaims_stale_socket():
     path = _short_sock("stale")
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+    _release_lock(); _cleanup(path)
     # A dead overlay leaves a socket node with nothing listening.
     stale = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     stale.bind(path); stale.close()
@@ -43,7 +51,23 @@ def test_bind_singleton_reclaims_stale_socket():
     got = launcher.bind_singleton(path)
     assert got is not None, "a stale socket must be reclaimed"
     got.close()
-    os.unlink(path)
+    _release_lock()
+    _cleanup(path)
+
+
+def test_bind_singleton_reacquirable_after_release():
+    # When the holder dies (fd closed), the next overlay can acquire the lock.
+    path = _short_sock("reacq")
+    _release_lock(); _cleanup(path)
+    first = launcher.bind_singleton(path)
+    assert first is not None
+    first.close()
+    _release_lock()                      # simulate the holder process exiting
+    second = launcher.bind_singleton(path)
+    assert second is not None, "lock must be re-acquirable once released"
+    second.close()
+    _release_lock()
+    _cleanup(path)
 
 
 def test_socket_path_is_env_independent(monkeypatch, tmp_path):
