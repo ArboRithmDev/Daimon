@@ -20,12 +20,11 @@ from .senses.vue import Vue
 
 
 def _register_overlay(mcp) -> None:
-    from .config import load_overlay_config
-    from .overlay import launcher
-    from .overlay.client import OverlayClient
+    from . import backends
     from .overlay.protocol import Highlight, Spotlight, Cursor, Banner, Clear
 
-    client = OverlayClient(launcher.socket_path())  # silent no-op if overlay not running
+    # Platform-selected client; silent no-op if the overlay helper isn't running.
+    client = backends.build_overlay_launcher().make_client()
 
     @mcp.tool(name="overlay_highlight", description="Outline a screen rect with an optional label.")
     def overlay_highlight(x: int, y: int, width: int, height: int, label: str = "") -> dict:

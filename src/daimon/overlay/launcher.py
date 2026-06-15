@@ -37,3 +37,9 @@ def _spawn() -> None:
 def ensure_running() -> None:
     if not _socket_alive(socket_path()):
         _spawn()
+
+
+def make_client():
+    """An OverlayClient bound to this launcher's endpoint (macOS, AF_UNIX)."""
+    from .client import OverlayClient
+    return OverlayClient(socket_path())

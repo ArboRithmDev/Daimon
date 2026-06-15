@@ -35,8 +35,10 @@ _IDLE_GRACE = 3.0
 
 class OverlayServer:
     def __init__(self, scene, flip_height: float, idle_grace: float = _IDLE_GRACE,
-                 *, scheduler=None, terminate=None, main_dispatch=None):
+                 *, scheduler=None, terminate=None, main_dispatch=None, listener=None):
         self._scene = scene
+        # flip_height=None disables the Y flip (Windows/Qt is top-left origin like
+        # the protocol; macOS passes the window height to flip to bottom-left).
         self._flip = flip_height
         self._grace = idle_grace
         self._lock = threading.Lock()
@@ -44,15 +46,17 @@ class OverlayServer:
         # Bumped whenever the client count changes; a pending quit timer only
         # fires if its captured generation still matches (i.e. still idle).
         self._quit_gen = 0
-        # Injectable seams (tests). Defaults wire to the AppKit run loop / NSApp.
+        # Injectable seams (tests / Windows). Defaults wire to the AppKit run
+        # loop / NSApp / a Unix-domain listener.
         self._scheduler = scheduler            # (delay, fn) -> None
         self._terminate = terminate            # () -> None
         self._main_dispatch = main_dispatch    # (fn, arg) -> None
+        self._listener = listener              # () -> bound listening socket
 
     def start(self) -> None:
         threading.Thread(target=self._serve, daemon=True).start()
 
-    def _serve(self) -> None:
+    def _default_listener(self):
         path = socket_path()
         try:
             os.unlink(path)
@@ -60,6 +64,10 @@ class OverlayServer:
             pass
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         srv.bind(path); srv.listen(64)
+        return srv
+
+    def _serve(self) -> None:
+        srv = self._listener() if self._listener is not None else self._default_listener()
         while True:
             try:
                 conn, _ = srv.accept()
@@ -163,6 +171,6 @@ class OverlayServer:
 
     def _flip_cmd(self, cmd):
         from dataclasses import replace
-        if hasattr(cmd, "y"):
+        if self._flip is not None and hasattr(cmd, "y"):
             return replace(cmd, y=int(self._flip - cmd.y))
         return cmd

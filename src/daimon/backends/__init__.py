@@ -85,6 +85,19 @@ def build_a11y():
     raise _unsupported()
 
 
+# --- Overlay (wired in W3) -------------------------------------------------
+
+def build_overlay_launcher():
+    """Overlay launcher module (ensure_running + make_client) for the face."""
+    if sys.platform == "darwin":
+        from ..overlay import launcher
+        return launcher
+    if sys.platform == "win32":
+        from ..overlay import launcher_win
+        return launcher_win
+    raise _unsupported()
+
+
 # --- Permissions (wired in W4) ---------------------------------------------
 
 def build_permissions_backend():

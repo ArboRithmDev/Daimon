@@ -10,8 +10,6 @@ from ..config import load_motor_config
 from ..config import load_config as load_exclusions
 from ..config import load_overlay_config
 from ..exclusions import ExclusionFilter
-from ..overlay import launcher
-from ..overlay.client import OverlayClient
 from ..overlay.presenter import NullPresenter, OverlayPresenter
 from .audit import AppendOnlyLedger
 from .consent import ConsentManager
@@ -47,8 +45,9 @@ def build_organ() -> MotorOrgan:
     _LOGS.mkdir(parents=True, exist_ok=True)
     ocfg = load_overlay_config()
     if ocfg.enabled:
+        launcher = backends.build_overlay_launcher()
         launcher.ensure_running()
-        presenter = OverlayPresenter(OverlayClient(launcher.socket_path()), exclusions)
+        presenter = OverlayPresenter(launcher.make_client(), exclusions)
     else:
         presenter = NullPresenter()
     return MotorOrgan(

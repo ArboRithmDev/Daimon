@@ -4,6 +4,11 @@ from __future__ import annotations
 
 
 def main() -> None:
+    import sys
+    if sys.platform == "win32":
+        from ._win_main import main as win_main
+        return win_main()
+
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     from PyObjCTools import AppHelper
     from ...config import load_overlay_config
