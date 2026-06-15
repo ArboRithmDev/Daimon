@@ -1,7 +1,13 @@
 import asyncio
+import sys
+
+import pytest
+
 from daimon.server import build_server
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="build_server wires motor backends (build_organ); lands in W2")
 def test_server_exposes_full_toolset():
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     expected = {

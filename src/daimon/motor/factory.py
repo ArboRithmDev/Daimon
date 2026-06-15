@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .. import backends
 from ..config import load_motor_config
 from ..config import load_config as load_exclusions
 from ..config import load_overlay_config
@@ -12,13 +13,10 @@ from ..exclusions import ExclusionFilter
 from ..overlay import launcher
 from ..overlay.client import OverlayClient
 from ..overlay.presenter import NullPresenter, OverlayPresenter
-from .actuator import MacOSActuator
 from .audit import AppendOnlyLedger
 from .consent import ConsentManager
-from .gate import MacOSGate
 from .guard import PolicyGuard
 from .organ import MotorOrgan
-from .probe import MacOSProber
 from ..userdata import config_dir, logs_dir
 
 _LOGS = logs_dir()
@@ -55,10 +53,10 @@ def build_organ() -> MotorOrgan:
         presenter = NullPresenter()
     return MotorOrgan(
         guard=guard,
-        gate=MacOSGate(),
-        actuator=MacOSActuator(),
+        gate=backends.build_gate(),
+        actuator=backends.build_actuator(),
         session_log=AppendOnlyLedger(_LOGS / "session.jsonl"),
         clock=_now,
-        prober=MacOSProber(),
+        prober=backends.build_prober(),
         presenter=presenter,
     )

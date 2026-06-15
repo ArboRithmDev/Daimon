@@ -1,3 +1,7 @@
+import sys
+
+import pytest
+
 from daimon.setup.permissions import FakeBackend, read_status, record_status, status_marker_path
 
 
@@ -18,5 +22,7 @@ def test_record_creates_parent_dirs(tmp_path):
     assert p.exists()
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="marker path is platform-specific; %APPDATA% + test land in W4")
 def test_marker_path_under_application_support():
     assert str(status_marker_path()).endswith("Library/Application Support/Daimon/permissions.json")

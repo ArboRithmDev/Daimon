@@ -1,4 +1,8 @@
+import sys
 from pathlib import Path
+
+import pytest
+
 from daimon.setup.clients.registry import adapters_for_home, detected
 
 
@@ -10,6 +14,8 @@ def test_adapters_cover_known_clients():
             "Antigravity CLI", "Codex", "Mistral Vibe"} <= names
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="POSIX-path assertions; client paths + registry_win land in W4")
 def test_new_clients_have_correct_format():
     home = Path("/Users/test")
     by = {a.name: a for a in adapters_for_home(home)}
@@ -20,6 +26,8 @@ def test_new_clients_have_correct_format():
     assert "antigravity/mcp_config.json" in str(by["Antigravity Desktop"].config_path)
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="POSIX-path assertions; client paths + registry_win land in W4")
 def test_paths_are_under_home():
     home = Path("/Users/test")
     by = {a.name: a for a in adapters_for_home(home)}

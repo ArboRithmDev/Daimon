@@ -1,3 +1,7 @@
+import sys
+
+import pytest
+
 from daimon.overlay.client import OverlayClient
 from daimon.overlay.protocol import Banner
 
@@ -14,6 +18,8 @@ def test_send_writes_encoded_line():
     assert b"hi" in c._sock.sent and c._sock.sent.endswith(b"\n")
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="overlay transport (AF_UNIX → TCP loopback) lands in W3")
 def test_send_without_connection_is_silent(monkeypatch):
     c = OverlayClient(socket_path="/tmp/does-not-exist.sock")
     # connect will fail; send must not raise

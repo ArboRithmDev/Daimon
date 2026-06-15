@@ -37,11 +37,10 @@ class AppendOnlyLedger:
         return hashlib.sha256((prev + canonical).encode("utf-8")).hexdigest()
 
     def append(self, entry: dict) -> str:
-        import fcntl
+        from ._filelock import exclusive_lock
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a+", encoding="utf-8") as f:
-            try:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            with exclusive_lock(f):
                 # Read the last record while holding the lock to prevent races.
                 f.seek(0)
                 lines = [ln for ln in f.read().splitlines() if ln.strip()]
@@ -50,8 +49,6 @@ class AppendOnlyLedger:
                 h = self._compute(prev, body)
                 f.write(json.dumps({**body, "hash": h}, ensure_ascii=False) + "\n")
                 f.flush()
-            finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         return h
 
     def verify(self) -> bool:
