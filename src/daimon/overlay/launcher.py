@@ -75,10 +75,20 @@ def bind_singleton(path: str):
     return s
 
 
+def _overlay_cmd() -> list[str]:
+    # In the frozen .app, sys.executable is the Daimon binary (NOT python), so
+    # `-m daimon.overlay.app` would be ignored and the dispatcher would launch a
+    # tray instead. Use the explicit `overlay` subcommand there. From source,
+    # sys.executable is python, so go through `-m daimon overlay`.
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "overlay"]
+    return [sys.executable, "-m", "daimon", "overlay"]
+
+
 def _spawn() -> None:
     # Detached overlay process; it owns the AppKit run loop and the socket.
     subprocess.Popen(
-        [sys.executable, "-m", "daimon.overlay.app"],
+        _overlay_cmd(),
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
