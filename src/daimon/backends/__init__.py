@@ -34,7 +34,8 @@ def build_actuator():
         from ..motor.actuator import MacOSActuator
         return MacOSActuator()
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: actuator (W2)")
+        from ..motor.actuator_win import WindowsActuator
+        return WindowsActuator()
     raise _unsupported()
 
 
@@ -44,7 +45,8 @@ def build_gate():
         from ..motor.gate import MacOSGate
         return MacOSGate()
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: gate (W2 — Secure Desktop)")
+        from ..motor.gate_win import WindowsGate
+        return WindowsGate()
     raise _unsupported()
 
 
@@ -54,7 +56,8 @@ def build_prober():
         from ..motor.probe import MacOSProber
         return MacOSProber()
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: prober (W2 — UIA)")
+        from ..motor.prober_win import WindowsProber
+        return WindowsProber()
     raise _unsupported()
 
 
