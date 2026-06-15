@@ -46,9 +46,17 @@ def test_bind_singleton_reclaims_stale_socket():
     os.unlink(path)
 
 
-def test_socket_path_is_stable_and_in_tmp(monkeypatch):
+def test_socket_path_is_env_independent(monkeypatch, tmp_path):
+    # The socket path must NOT depend on $TMPDIR — if it did, clients launched
+    # with vs without TMPDIR would bind different sockets and run twin overlays.
+    monkeypatch.setenv("DAIMON_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("TMPDIR", "/tmp/")
-    assert launcher.socket_path().endswith("daimon-overlay.sock")
+    p1 = launcher.socket_path()
+    monkeypatch.setenv("TMPDIR", "/var/folders/xx/T/")
+    p2 = launcher.socket_path()
+    assert p1 == p2
+    assert p1.endswith("overlay.sock")
+    assert str(tmp_path) in p1
 
 
 def test_ensure_running_skips_spawn_when_socket_live(monkeypatch):

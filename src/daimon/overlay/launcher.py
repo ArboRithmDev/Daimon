@@ -7,9 +7,16 @@ import socket
 import subprocess
 import sys
 
+from ..userdata import data_dir
+
 
 def socket_path() -> str:
-    return os.path.join(os.environ.get("TMPDIR", "/tmp"), "daimon-overlay.sock")
+    # Must be IDENTICAL for every process that talks to the overlay, regardless
+    # of how it was launched. $TMPDIR is NOT — a client started without it lands
+    # in /tmp while one with it lands in /var/folders/…, so the two bound
+    # different sockets and ran two overlays side by side forever. The per-user
+    # data dir is stable and env-independent (the same anchor as config/logs).
+    return str(data_dir() / "overlay.sock")
 
 
 def _socket_alive(path: str) -> bool:
@@ -35,6 +42,10 @@ def bind_singleton(path: str):
     WITHOUT unlinking (the old unconditional os.unlink let a loser stomp the
     winner's path, leaving the winner alive but client-less forever).
     """
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    except OSError:
+        pass
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         s.bind(path)
