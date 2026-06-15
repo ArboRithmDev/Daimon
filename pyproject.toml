@@ -8,10 +8,16 @@ license = "AGPL-3.0-or-later"
 authors = [{ name = "Ben" }]
 dependencies = [
     "mcp>=1.2.0",          # Model Context Protocol server SDK (FastMCP)
-    "pyobjc-framework-Quartz>=10.0",        # screen capture + display geometry
-    "pyobjc-framework-ApplicationServices>=10.0",  # Accessibility API (Touché)
     "Pillow>=10.0",        # image encode/downscale for Vue snapshots
     "PyYAML>=6.0",         # exclusion-zone config
+    # --- macOS backends (Vue/Touché/Mains via pyobjc) ---
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
+    # --- Windows backends ---
+    "pywin32>=306; sys_platform == 'win32'",          # foreground window, displays
+    "windows-capture>=1.4; sys_platform == 'win32'",  # WGC screen capture (Vue)
+    "comtypes>=1.4; sys_platform == 'win32'",         # UIA COM bindings
+    "uiautomation>=2.0; sys_platform == 'win32'",     # UIA tree (Touché)
 ]
 
 [project.optional-dependencies]

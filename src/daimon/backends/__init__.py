@@ -66,7 +66,8 @@ def build_screen():
         from ..capture import screen
         return screen
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: screen capture (W1 — WGC)")
+        from ..capture import screen_win
+        return screen_win
     raise _unsupported()
 
 
@@ -76,7 +77,8 @@ def build_a11y():
         from ..capture import accessibility
         return accessibility
     if sys.platform == "win32":
-        raise NotImplementedError(f"{_WIN_PENDING}: accessibility (W1 — UIA)")
+        from ..capture import accessibility_win
+        return accessibility_win
     raise _unsupported()
 
 

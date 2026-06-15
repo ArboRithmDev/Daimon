@@ -19,7 +19,7 @@ import io
 
 from mcp.server.fastmcp import Image as MCPImage
 
-from ..capture import screen
+from .. import backends
 from .base import Sense
 
 
@@ -35,6 +35,7 @@ class Vue(Sense):
             ),
         )
         def vue_displays() -> list[dict]:
+            screen = backends.build_screen()
             return [
                 {
                     "index": d.index,
@@ -59,6 +60,7 @@ class Vue(Sense):
         )
         def vue_snapshot(display: int = 0, max_width: int = 720,
                          region: dict | None = None) -> MCPImage:
+            screen = backends.build_screen()
             frame = screen.capture_display(display_index=display, max_width=max_width, region=region)
 
             gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
@@ -85,7 +87,7 @@ class Vue(Sense):
         this method handles per-element secret roles only.
         """
         try:
-            from ..capture import accessibility as ax
+            ax = backends.build_a11y()
             if not ax.is_trusted():
                 return []
             tree = ax.snapshot_tree(max_depth=12, prune_empty=False)

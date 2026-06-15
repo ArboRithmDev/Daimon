@@ -6,12 +6,19 @@ from mcp.server.fastmcp import FastMCP
 
 
 def test_touche_tree_accepts_bounding_params(monkeypatch):
-    import daimon.capture.accessibility as ax
+    import daimon.backends as backends
     captured = {}
-    monkeypatch.setattr(ax, "is_trusted", lambda: True)
+
     def fake_snapshot(**kw):
         captured.update(kw); return {"role": "AXWindow"}
-    monkeypatch.setattr(ax, "snapshot_tree", fake_snapshot)
+
+    class _FakeA11y:
+        is_trusted = staticmethod(lambda: True)
+        snapshot_tree = staticmethod(fake_snapshot)
+
+    # Patch the platform selector so the test is OS-agnostic (Touché now pulls
+    # its backend via backends.build_a11y rather than importing capture directly).
+    monkeypatch.setattr(backends, "build_a11y", lambda: _FakeA11y)
 
     mcp = FastMCP("t")
     Touche(ExclusionFilter(ExclusionConfig())).register(mcp)

@@ -37,3 +37,6 @@ config/overlay.yaml
 
 # OpenDesign working directory (generated artifacts, not Daimon source)
 design/
+
+# Windows port dev venv
+.venv-win/
