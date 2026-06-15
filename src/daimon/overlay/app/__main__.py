@@ -7,14 +7,16 @@ def main() -> None:
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     from PyObjCTools import AppHelper
     from ...config import load_overlay_config
-    from ..launcher import _socket_alive, socket_path
+    from ..launcher import bind_singleton, socket_path
     from .window import make_overlay_window
     from .scene import Scene
     from .server import OverlayServer
 
-    # Singleton: if another overlay already owns the socket, do not open a
-    # second window (that is how orphaned overlays used to pile up).
-    if _socket_alive(socket_path()):
+    # Acquire the socket FIRST, atomically. If another overlay already owns it
+    # we exit immediately — before opening any window — so racing spawns can no
+    # longer leave a second, client-less overlay running forever.
+    sock = bind_singleton(socket_path())
+    if sock is None:
         return
 
     cfg = load_overlay_config()
@@ -23,7 +25,7 @@ def main() -> None:
     win = make_overlay_window(anti_feedback=cfg.anti_feedback)
     win.contentView().layer().setOpacity_(cfg.opacity)
     scene = Scene(win.contentView().layer(), height=win.frame().size.height)
-    OverlayServer(scene, flip_height=win.frame().size.height).start()
+    OverlayServer(scene, flip_height=win.frame().size.height, listen_sock=sock).start()
     AppHelper.runEventLoop()
 
 
