@@ -139,9 +139,40 @@ def node_from_element(control, *, with_geometry: bool = True) -> dict:
 
 
 # UIA traversal can be slow on very complex apps (deep Chromium/Electron trees),
-# where each COM property read costs milliseconds. Bound every walk in wall-clock
-# time so a snapshot can never stall — the tree is returned truncated instead.
-_WALK_BUDGET = 3.0
+# where each COM property read costs milliseconds. Two bounds keep a snapshot
+# from ever stalling:
+#   * _WALK_BUDGET — a wall-clock deadline checked *between* nodes in _raw_tree
+#     (caps a slow-but-progressing walk; the tree comes back truncated).
+#   * _HARD_TIMEOUT — a thread join timeout in _run_uia_bounded that preempts a
+#     SINGLE UIA COM call that hangs outright (an unresponsive app), which the
+#     between-nodes deadline alone cannot interrupt.
+_WALK_BUDGET = 2.0
+_HARD_TIMEOUT = 3.5
+
+
+def _run_uia_bounded(fn, timeout: float = _HARD_TIMEOUT):
+    """Run a UIA-using callable on a worker thread (with its own COM apartment)
+    and abandon it if it exceeds ``timeout`` — so a hung COM call can never block
+    the caller. Raises TimeoutError on overrun; re-raises the callable's error.
+    Returns plain data (no COM objects cross the thread boundary)."""
+    import threading
+    holder: dict = {}
+
+    def _work():
+        try:
+            with _uia().UIAutomationInitializerInThread(debug=False):
+                holder["v"] = fn()
+        except BaseException as e:  # noqa: BLE001 — propagate to the caller thread
+            holder["e"] = e
+
+    t = threading.Thread(target=_work, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        raise TimeoutError(f"UIA operation exceeded {timeout}s")
+    if "e" in holder:
+        raise holder["e"]
+    return holder.get("v")
 
 
 def _raw_tree(root, max_nodes: int, deadline: float | None = None) -> dict:
@@ -223,8 +254,18 @@ def snapshot_tree(
     """Touché passif, bounded. ``root``={x,y} dumps a subtree; ``window``=
     {pid|title} targets a specific window instead of the foreground."""
     import time
-    root_el = _resolve_root(window, root)
-    raw = _raw_tree(root_el, max_nodes, deadline=time.monotonic() + _WALK_BUDGET)
+
+    def _build():
+        root_el = _resolve_root(window, root)
+        return _raw_tree(root_el, max_nodes, deadline=time.monotonic() + _WALK_BUDGET)
+
+    try:
+        raw = _run_uia_bounded(_build)
+    except TimeoutError:
+        # A UIA call hung; return a truncated stub rather than block the caller.
+        raw = {"role": None, "subrole": None, "title": None, "value": None,
+               "description": None, "position": None, "size": None,
+               "children_truncated": True}
     shaped = shape_tree(
         raw, max_depth=max_depth, roles=roles,
         prune_empty=prune_empty, max_value_chars=max_value_chars,
@@ -236,19 +277,23 @@ def snapshot_tree(
 
 def element_at(x: int, y: int) -> dict:
     """Touché actif: the element under a screen point."""
-    auto = _uia()
+    def _work():
+        auto = _uia()
+        el = auto.ControlFromPoint(int(x), int(y))
+        if el is None:
+            raise RuntimeError(f"No UIA element at ({x}, {y}).")
+        return node_from_element(el)
 
-    el = auto.ControlFromPoint(int(x), int(y))
-    if el is None:
-        raise RuntimeError(f"No UIA element at ({x}, {y}).")
-    return node_from_element(el)
+    return _run_uia_bounded(_work)
 
 
 def focused_element() -> dict:
     """The system-wide focused UI element."""
-    auto = _uia()
+    def _work():
+        auto = _uia()
+        el = auto.GetFocusedControl()
+        if el is None:
+            raise RuntimeError("No focused element.")
+        return node_from_element(el)
 
-    el = auto.GetFocusedControl()
-    if el is None:
-        raise RuntimeError("No focused element.")
-    return node_from_element(el)
+    return _run_uia_bounded(_work)
