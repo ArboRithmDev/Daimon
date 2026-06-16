@@ -142,8 +142,39 @@ class WindowsTrayController:
         os.startfile(str(d))  # noqa: S606 — open the folder in Explorer
 
 
+# Held for the tray process's lifetime so only one Daimon tray runs at a time.
+# Without it, every relaunch (double-click, installer "launch on finish", a
+# stale build never quit) leaves another resident tray — stacking duplicate
+# icons and stale menus (an old v0.0.3 tray was found lingering this way).
+_tray_lock_fd = None
+
+
+def _acquire_singleton() -> bool:
+    """Exclusive file lock so a second Daimon tray exits instead of stacking."""
+    global _tray_lock_fd
+    import os
+    try:
+        import msvcrt
+        from ...userdata import data_dir
+        d = data_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(d / "tray.lock"), os.O_CREAT | os.O_RDWR)
+        try:
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        except OSError:
+            os.close(fd)
+            return False  # another tray already holds it
+        _tray_lock_fd = fd  # hold for the life of the process
+        return True
+    except Exception:
+        return True  # never block the tray on a lock-mechanism failure
+
+
 def main() -> int:
     from PySide6 import QtWidgets
+
+    if not _acquire_singleton():
+        return 0  # another Daimon tray is already resident
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     app.setQuitOnLastWindowClosed(False)  # resident tray app, no main window
