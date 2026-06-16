@@ -30,17 +30,21 @@ $env:DAIMON_CERT_SUBJECT = "Arborithm"   # your cert's subject (signtool /n)
 ```
 
 Outputs in `dist\`:
-- `dist\Daimon\` — the one-dir bundle (`Daimon.exe` windowed tray/GUI,
-  `daimon.exe` console dispatcher).
+- `dist\Daimon\` — the one-dir bundle with a single `Daimon.exe` dispatcher.
 - `dist\Daimon-<version>-setup.exe` — the installer.
 
 ## What ships
 
-- **`Daimon.exe`** (windowed) — double-click / Start-menu / optional sign-in
-  startup. Runs the resident system-tray app; first run opens onboarding.
-- **`daimon.exe`** (console) — what MCP clients invoke as `daimon serve` (stdio
-  MCP server); subcommands run the setup CLI. Registration points clients at
-  `…\Daimon\daimon.exe serve` (see `setup/invocation.py`).
+A single **`Daimon.exe`** (windowed) that dispatches on argv — one binary, like
+the macOS bundle (and `Daimon.exe`/`daimon.exe` would case-collide on Windows):
+- double-click / Start-menu / optional sign-in startup → the resident system-tray
+  app; first run opens onboarding;
+- `Daimon.exe serve` → the stdio MCP server (what clients invoke; stdio works via
+  the client's inherited pipes even though the exe is windowed);
+- subcommands → the setup CLI.
+
+Registration points clients at `…\Daimon\Daimon.exe serve` (see
+`setup/invocation.py`).
 
 ## Version
 

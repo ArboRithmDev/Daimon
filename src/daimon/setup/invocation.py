@@ -27,7 +27,7 @@ def _bundled_windows() -> Path | None:
     for env in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):
         base = os.environ.get(env)
         if base:
-            candidates.append(Path(base) / "Daimon" / "daimon.exe")
+            candidates.append(Path(base) / "Daimon" / "Daimon.exe")
     return next((p for p in candidates if p.exists()), None)
 
 

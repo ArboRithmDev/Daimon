@@ -43,7 +43,7 @@ Write-Host "Building Daimon $version" -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
 $distDir = Join-Path $root "dist\Daimon"
-$exes = @("$distDir\Daimon.exe", "$distDir\daimon.exe")
+$exes = @("$distDir\Daimon.exe")
 
 # 2. Sign the exes ----------------------------------------------------------
 function Invoke-Sign($path) {

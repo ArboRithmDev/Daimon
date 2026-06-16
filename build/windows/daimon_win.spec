@@ -5,18 +5,20 @@ Build (from the repo root, inside the Windows venv):
 
     pyinstaller build/windows/daimon_win.spec --clean --noconfirm
 
-Produces a one-dir bundle ``dist/Daimon`` with two executables sharing one
-Analysis (the heavy PySide6/UIA/WGC payload is collected once):
+Produces a one-dir bundle ``dist/Daimon`` with a single ``Daimon.exe`` (the
+macOS spec uses one dispatcher too — and on Windows ``Daimon.exe`` / ``daimon.exe``
+would case-collide on the case-insensitive filesystem). The entry is
+``daimon/__main__.py``, which dispatches on argv:
 
-* ``Daimon.exe``  — windowed (no console). The double-click entry: the resident
-  system-tray app (and the onboarding window). This is what the Start-menu /
-  installer shortcut points at.
-* ``daimon.exe``  — console. The dispatcher MCP clients invoke as ``daimon serve``
-  (stdio MCP server); subcommands run the setup CLI. Console subsystem so stdio
-  is clean for the client pipe.
+* no-arg (double-click) → the resident system-tray app / onboarding window;
+* ``serve`` → the stdio MCP server (what clients invoke as ``Daimon.exe serve``);
+* setup subcommands → the setup CLI.
 
-``build/windows/build_windows.ps1`` then (optionally) Authenticode-signs the
-exes and wraps them in an Inno Setup installer.
+``console=False`` avoids a console window on double-click; stdio still works when
+an MCP client spawns ``Daimon.exe serve`` with inherited pipes (same as macOS).
+
+``build/windows/build_windows.ps1`` then (optionally) Authenticode-signs the exe
+and wraps it in an Inno Setup installer.
 """
 
 # pylint: disable=all
@@ -87,8 +89,9 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Windowed entry (no console) — the tray / onboarding GUI on double-click.
-exe_gui = EXE(
+# Single windowed dispatcher (no console flash on double-click; stdio still works
+# when an MCP client spawns `Daimon.exe serve` with inherited pipes).
+exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
     name="Daimon",
@@ -97,18 +100,8 @@ exe_gui = EXE(
     icon=icon_arg,
 )
 
-# Console entry — what MCP clients launch as `daimon serve`.
-exe_cli = EXE(
-    pyz, a.scripts, [],
-    exclude_binaries=True,
-    name="daimon",
-    debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
-    console=True, disable_windowed_traceback=False,
-    icon=icon_arg,
-)
-
 coll = COLLECT(
-    exe_gui, exe_cli,
+    exe,
     a.binaries, a.zipfiles, a.datas,
     strip=False, upx=False, upx_exclude=[],
     name="Daimon",
