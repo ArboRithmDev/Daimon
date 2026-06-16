@@ -1,4 +1,4 @@
-"""Live smoke tests for the Windows WGC capture backend. Windows-only."""
+"""Live smoke tests for the Windows ImageGrab capture backend. Windows-only."""
 
 import sys
 
@@ -11,6 +11,18 @@ pytest.importorskip("win32api")
 pytest.importorskip("PIL")
 
 
+def _grabbable() -> bool:
+    """True if the desktop can be captured right now. BitBlt fails on a locked
+    screen or a sleeping monitor (you cannot capture a screen you cannot see) —
+    skip the live capture test in that state rather than report a false failure."""
+    from PIL import ImageGrab
+    try:
+        ImageGrab.grab(all_screens=True)
+        return True
+    except OSError:
+        return False
+
+
 def test_list_displays_returns_at_least_one():
     from daimon.capture import screen_win
     displays = screen_win.list_displays()
@@ -21,6 +33,8 @@ def test_list_displays_returns_at_least_one():
 
 
 def test_capture_main_display_returns_rgb_frame():
+    if not _grabbable():
+        pytest.skip("desktop not capturable (screen locked / monitor asleep)")
     from daimon.capture import screen_win
     frame = screen_win.capture_main_display(max_width=320)
     assert frame.width <= 320

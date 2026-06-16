@@ -111,7 +111,13 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
     from PIL import ImageGrab
 
     left, top, right, bottom = _monitor_bbox(display_index)
-    img = ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).convert("RGB")
+    try:
+        img = ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).convert("RGB")
+    except OSError as e:
+        # BitBlt fails when there is nothing to capture: locked screen, a monitor
+        # asleep, or a disconnected/non-interactive session. Surface it clearly.
+        raise RuntimeError(
+            "screen capture failed — the display is locked, asleep, or inaccessible") from e
     img = crop_region(img, region)
     if max_width and img.width > max_width:
         ratio = max_width / img.width
