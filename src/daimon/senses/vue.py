@@ -87,13 +87,15 @@ class Vue(Sense):
 
         Best-effort: returns [] whenever accessibility is unavailable or errors.
         The whole-app secret-app gate is already handled by evaluate_frontmost;
-        this method handles per-element secret roles only.
+        this method handles per-element secret roles only. The backend bounds its
+        own tree walk in time (UIA can be slow on complex Windows apps), so this
+        never stalls a capture.
         """
         try:
             ax = backends.build_a11y()
             if not ax.is_trusted():
                 return []
-            tree = ax.snapshot_tree(max_depth=12, prune_empty=False)
+            tree = ax.snapshot_tree(max_depth=8, prune_empty=False, max_nodes=300)
             rects: list[dict] = []
 
             def walk(node: dict) -> None:

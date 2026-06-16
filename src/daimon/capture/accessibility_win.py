@@ -23,6 +23,32 @@ _DEFAULT_MAX_DEPTH = 4
 _SECRET_ROLE = "AXSecureTextField"
 
 
+def _ensure_comtypes_gen_dir() -> None:
+    """Point comtypes' generated-wrapper cache at a writable per-user dir BEFORE
+    uiautomation triggers UIA code generation.
+
+    On first UIA use comtypes generates ~360 KB of Python wrappers for the
+    UIAutomation type library. Left to default, it writes them inside the
+    package dir — which is the install folder for a frozen build: read-only under
+    Program Files (so it regenerates every run, slowly), and freshly scanned by
+    antivirus right after a build (the one-time multi-minute stall seen on a
+    cold frozen exe). Anchored to the Daimon data dir (%APPDATA%\\Daimon\\
+    comtypes_gen) it is generated once, persists across runs and versions, and
+    survives a read-only install.
+    """
+    try:
+        import comtypes.client
+        from ..userdata import data_dir
+        gen = data_dir() / "comtypes_gen"
+        gen.mkdir(parents=True, exist_ok=True)
+        comtypes.client.gen_dir = str(gen)
+    except Exception:
+        pass  # fall back to comtypes' own default; never block perception
+
+
+_ensure_comtypes_gen_dir()
+
+
 def is_trusted() -> bool:
     """UIA needs no per-app permission grant on Windows."""
     return True
@@ -90,15 +116,25 @@ def node_from_element(control, *, with_geometry: bool = True) -> dict:
     return node
 
 
-def _raw_tree(root, max_nodes: int) -> dict:
-    """Walk the UIA tree into plain dicts, capped by node count (depth/role
-    shaping happens later in the pure treeshape module)."""
+# UIA traversal can be slow on very complex apps (deep Chromium/Electron trees),
+# where each COM property read costs milliseconds. Bound every walk in wall-clock
+# time so a snapshot can never stall — the tree is returned truncated instead.
+_WALK_BUDGET = 3.0
+
+
+def _raw_tree(root, max_nodes: int, deadline: float | None = None) -> dict:
+    """Walk the UIA tree into plain dicts, capped by node count AND a wall-clock
+    deadline (depth/role shaping happens later in the pure treeshape module)."""
+    import time
     counter = [0]
+
+    def _stop() -> bool:
+        return counter[0] >= max_nodes or (deadline is not None and time.monotonic() > deadline)
 
     def walk(control) -> dict:
         node = node_from_element(control)
         counter[0] += 1
-        if counter[0] >= max_nodes:
+        if _stop():
             node["children_truncated"] = True
             return node
         try:
@@ -107,7 +143,7 @@ def _raw_tree(root, max_nodes: int) -> dict:
             children = []
         kids = []
         for child in children:
-            if counter[0] >= max_nodes:
+            if _stop():
                 node["children_truncated"] = True
                 break
             kids.append(walk(child))
@@ -164,8 +200,9 @@ def snapshot_tree(
 ) -> dict:
     """Touché passif, bounded. ``root``={x,y} dumps a subtree; ``window``=
     {pid|title} targets a specific window instead of the foreground."""
+    import time
     root_el = _resolve_root(window, root)
-    raw = _raw_tree(root_el, max_nodes)
+    raw = _raw_tree(root_el, max_nodes, deadline=time.monotonic() + _WALK_BUDGET)
     shaped = shape_tree(
         raw, max_depth=max_depth, roles=roles,
         prune_empty=prune_empty, max_value_chars=max_value_chars,
