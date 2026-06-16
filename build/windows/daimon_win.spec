@@ -107,7 +107,7 @@ exe = EXE(
     exclude_binaries=True,
     name="Daimon",
     debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
-    console=False, disable_windowed_traceback=False,
+    console=False, disable_windowed_traceback=True,  # no crash dialog for the bg exe
     icon=icon_arg,
 )
 

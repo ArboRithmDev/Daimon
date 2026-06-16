@@ -1,6 +1,5 @@
 """Windows overlay launcher — exclusive singleton + frozen-aware spawn. Win-only."""
 
-import socket
 import sys
 
 import pytest
@@ -8,24 +7,17 @@ import pytest
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows-only launcher")
 
 
-def _free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
-
-def test_bind_singleton_is_exclusive(monkeypatch, tmp_path):
+def test_bind_singleton_is_exclusive_and_publishes_port(monkeypatch, tmp_path):
     monkeypatch.setenv("DAIMON_DATA_DIR", str(tmp_path))
     from daimon.overlay import launcher_win, transport_win
 
-    monkeypatch.setattr(transport_win, "_PORT", _free_port())
     monkeypatch.setattr(launcher_win, "_lock_fd", None, raising=False)
 
     s1 = launcher_win.bind_singleton()
     assert s1 is not None  # sole owner
     try:
+        # The bound (ephemeral) port is published for clients to read.
+        assert transport_win.read_port() == s1.getsockname()[1]
         s2 = launcher_win.bind_singleton()
         assert s2 is None  # lock held → loser must back off
     finally:

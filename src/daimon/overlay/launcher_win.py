@@ -58,10 +58,19 @@ def bind_singleton():
         return None  # another overlay holds the lock → this one must exit
     _lock_fd = fd  # hold for the life of the process
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((transport_win._HOST, transport_win._PORT))  # no SO_REUSEADDR — sole owner via the lock
-    s.listen(64)
-    return s
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Port 0: the kernel picks a free port, dodging Windows' reserved dynamic
+        # ranges (Hyper-V/WSL) that make a fixed port fail with WSAEACCES.
+        s.bind((transport_win._HOST, 0))
+        s.listen(64)
+        transport_win.write_port(s.getsockname()[1])  # publish for clients
+        return s
+    except OSError:
+        # Could not host — release the lock and run without an overlay (never crash).
+        os.close(fd)
+        _lock_fd = None
+        return None
 
 
 def _overlay_cmd() -> list[str]:

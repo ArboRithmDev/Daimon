@@ -1,42 +1,57 @@
-"""Overlay transport for Windows — TCP loopback.
+"""Overlay transport for Windows — loopback TCP on an ephemeral port.
 
-Python's AF_UNIX support is unreliable on Windows, so the overlay's single-helper
-socket runs on a fixed loopback port instead. Same line-delimited JSON protocol;
-only the rendezvous changes. The port is process-agnostic so the launcher, the
-client (every MCP server), and the overlay helper all find the same endpoint.
+Python's AF_UNIX support is unreliable on Windows, so the overlay runs over a
+loopback socket. A FIXED port is a trap: Windows reserves blocks of the dynamic
+range (Hyper-V / WSL), and binding inside one fails with WSAEACCES (WinError
+10013). So the overlay binds port 0 — the kernel hands out a free port that is
+never in a reserved range and never already taken — and writes it to
+``overlay.port`` in the per-user data dir. Every client reads the port from that
+file, so they all rendezvous without a hard-coded number.
 """
 
 from __future__ import annotations
 
 import socket
 
+from ..userdata import data_dir
+
 _HOST = "127.0.0.1"
-# Fixed rendezvous port for the Daimon overlay helper (single-user, single-host).
-_PORT = 49737
 
 
-def endpoint() -> tuple[str, int]:
-    return (_HOST, _PORT)
+def _port_file():
+    return data_dir() / "overlay.port"
 
 
-def create_server_socket() -> socket.socket:
-    """A bound, listening loopback socket for the overlay helper.
+def write_port(port: int) -> None:
+    """Publish the port the overlay bound, for clients to read. Best-effort."""
+    try:
+        p = _port_file()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(str(port), encoding="utf-8")
+    except OSError:
+        pass
 
-    No SO_REUSEADDR: on Windows it lets a second process bind the SAME port,
-    which would spawn a twin overlay. The single-owner guarantee comes from the
-    launcher's exclusive lock (``bind_singleton``); a second bind here must fail.
-    """
-    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.bind((_HOST, _PORT))
-    srv.listen(64)
-    return srv
+
+def read_port():
+    """The port the overlay published, or None if absent/unreadable."""
+    try:
+        return int(_port_file().read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def endpoint():
+    return (_HOST, read_port())
 
 
 def connect(timeout: float = 0.05) -> socket.socket:
     """Connect to the overlay helper; raises OSError if it is not running."""
+    port = read_port()
+    if not port:
+        raise OSError("overlay port file missing")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout)
-    s.connect((_HOST, _PORT))
+    s.connect((_HOST, port))
     return s
 
 

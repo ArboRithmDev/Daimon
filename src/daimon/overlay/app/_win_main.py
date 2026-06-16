@@ -11,6 +11,20 @@ from __future__ import annotations
 
 
 def main() -> None:
+    # The overlay is best-effort and runs as a detached windowed process: any
+    # failure must exit quietly, never raise to the PyInstaller bootloader (which
+    # would pop an "Unhandled exception in script" dialog at the user).
+    try:
+        _run()
+    except Exception:
+        try:
+            from ...applog import log_exception
+            log_exception("overlay/_win_main")
+        except Exception:
+            pass
+
+
+def _run() -> None:
     import sys
 
     from PySide6 import QtCore, QtWidgets
