@@ -11,6 +11,7 @@ _MARK_TTL = 6.0
 
 
 class Scene:
+    """Holds the overlay's CALayers and applies protocol commands to them."""
     def __init__(self, layer, height: float = 0):
         self._root = layer
         self._h = height
@@ -41,6 +42,7 @@ class Scene:
         return NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, a * opacity).CGColor()
 
     def apply(self, cmd) -> None:
+        """Dispatch a command to its _do_<cmd> handler; ignore unknown ones."""
         getattr(self, f"_do_{cmd.cmd}", self._noop)(cmd)
 
     def _noop(self, cmd): pass

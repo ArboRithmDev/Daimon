@@ -19,6 +19,7 @@ from .types import Level
 def run_command(command: str, *, typed: str | None, config_ceiling: Level,
                 engagement_phrase: str, disengagement_phrase: str,
                 ledger_path, state_path) -> int:
+    """Apply a status/engage/disengage command to the consent ceiling (testable core)."""
     manager = ConsentManager(
         config_ceiling=config_ceiling,
         engagement_phrase=engagement_phrase,
@@ -44,6 +45,7 @@ def run_command(command: str, *, typed: str | None, config_ceiling: Level,
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: load config, prompt for the phrase, and run the command."""
     from ..config import load_motor_config
     from .factory import _LOGS, _STATE
 

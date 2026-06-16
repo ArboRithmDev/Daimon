@@ -16,14 +16,16 @@ def main() -> None:
     from PySide6 import QtCore, QtWidgets
 
     from ...config import load_overlay_config
-    from ..launcher_win import _socket_alive
-    from ..transport_win import create_server_socket
+    from ..launcher_win import bind_singleton
     from .scene_win import Scene
     from .server import OverlayServer
     from .window_win import make_overlay_canvas
 
-    # Singleton: if another overlay already owns the port, do not open a second.
-    if _socket_alive():
+    # Acquire the endpoint FIRST, atomically (exclusive lock + bind). If another
+    # overlay already owns it we exit immediately — before opening any window —
+    # so racing spawns can never leave a second, client-less overlay running.
+    sock = bind_singleton()
+    if sock is None:
         return
 
     cfg = load_overlay_config()
@@ -59,7 +61,7 @@ def main() -> None:
     OverlayServer(
         scene, flip_height=None,  # Qt is top-left origin like the protocol
         scheduler=scheduler, terminate=terminate, main_dispatch=main_dispatch,
-        listener=create_server_socket,
+        listen_sock=sock,
     ).start()
 
     app.exec()

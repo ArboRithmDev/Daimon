@@ -37,12 +37,15 @@ def test_connection_applies_command_then_idle_quit():
     scene = _FakeScene()
     terminated = {"called": False}
 
+    import threading
     server = OverlayServer(
         scene, flip_height=None, idle_grace=0.0,
-        scheduler=lambda delay, fn: fn(),          # fire idle-quit immediately
+        # Honour the delay: the 60s startup-reap must NOT fire during the test,
+        # but the 0s idle-quit after disconnect should.
+        scheduler=lambda delay, fn: threading.Timer(delay, fn).start(),
         terminate=lambda: terminated.__setitem__("called", True),
         main_dispatch=lambda fn, arg: fn(arg),     # apply synchronously
-        listener=lambda: srv,
+        listen_sock=srv,
     )
     server.start()
 

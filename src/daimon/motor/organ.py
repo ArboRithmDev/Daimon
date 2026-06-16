@@ -22,6 +22,8 @@ from ..overlay.presenter import NullPresenter
 
 
 class MotorOrgan:
+    """Wires the guard, gate, actuator, and ledger into one act() chokepoint."""
+
     def __init__(
         self,
         guard: PolicyGuard,
@@ -62,6 +64,7 @@ class MotorOrgan:
             pass  # presentation never affects the action
 
     def act(self, action: MotorAction) -> dict:
+        """Run an action through guard → gate → log → execute; no-log = no-act."""
         claimed = action.target
         observed = self._prober.observe(action)
         from dataclasses import replace

@@ -37,6 +37,7 @@ def _target_text(target: Target, *, include_value: bool = True) -> str:
 
 
 def classify(action: MotorAction) -> Reversibility:
+    """Daimon's own point-of-no-return verdict on a target; fail-safe to risky."""
     # For keyboard actions (type/key) the target is the focused field; its `value`
     # is the text ALREADY there, not a signal about whether the keystroke is a
     # point of no return. Scanning it false-gates any typing into a field that

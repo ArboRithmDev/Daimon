@@ -60,3 +60,40 @@ def test_gui_flag_runs_gui(monkeypatch):
     monkeypatch.setattr("daimon.setup.gui.__main__.main", lambda: ran.setdefault("gui", True) or 0)
     m.main(["--gui"])
     assert ran.get("gui") is True
+
+
+def test_overlay_subcommand_runs_overlay(monkeypatch):
+    ran = {}
+    monkeypatch.setattr("daimon.overlay.app.__main__.main",
+                        lambda: ran.setdefault("overlay", True) or 0)
+    assert m.main(["overlay"]) == 0
+    assert ran.get("overlay") is True
+
+
+def test_overlay_subcommand_runs_overlay_when_frozen(monkeypatch):
+    # The frozen .app spawns the overlay via this subcommand; it must NOT fall
+    # through to the tray (the bug that piled up duplicate menu-bar Daimons).
+    monkeypatch.setattr(m.sys, "frozen", True, raising=False)
+    ran = {}
+    monkeypatch.setattr("daimon.overlay.app.__main__.main",
+                        lambda: ran.setdefault("overlay", True) or 0)
+    monkeypatch.setattr("daimon.tray.app.__main__.main",
+                        lambda: ran.setdefault("tray", True) or 0)
+    m.main(["overlay"])
+    assert ran.get("overlay") is True
+    assert ran.get("tray") is None, "overlay spawn must never start a tray"
+
+
+def test_overlay_spawn_cmd_is_frozen_aware(monkeypatch):
+    from daimon.overlay import launcher
+
+    monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(launcher.sys, "executable", "/Applications/Daimon.app/Contents/MacOS/Daimon")
+    # Frozen: address the dispatcher subcommand, NEVER `-m` (sys.executable is
+    # the Daimon binary, not python — `-m` would launch a tray).
+    assert launcher._overlay_cmd() == ["/Applications/Daimon.app/Contents/MacOS/Daimon", "overlay"]
+    assert "-m" not in launcher._overlay_cmd()
+
+    monkeypatch.setattr(launcher.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(launcher.sys, "executable", "/usr/bin/python3")
+    assert launcher._overlay_cmd() == ["/usr/bin/python3", "-m", "daimon", "overlay"]

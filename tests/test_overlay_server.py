@@ -67,3 +67,20 @@ def test_scene_cleared_on_idle():
     srv._client_removed()
     # Clear is dispatched to the scene when the last client leaves.
     assert any(getattr(c, "cmd", None) == "clear" for c in srv._scene.applied)
+
+
+def test_startup_reap_when_no_client_ever_connects():
+    # The loser of a spawn race never gets a client; it must reap itself.
+    srv, pending, terminated = _server()
+    srv._arm_quit(srv._startup_grace)   # what _serve() arms at startup
+    assert len(pending) == 1
+    pending[0]()
+    assert terminated == [True]
+
+
+def test_startup_reap_cancelled_by_first_client():
+    srv, pending, terminated = _server()
+    srv._arm_quit(srv._startup_grace)
+    srv._client_added()                 # a driver arrived in time
+    pending[0]()                        # fire the stale startup timer
+    assert terminated == [], "first client must cancel the startup reap"

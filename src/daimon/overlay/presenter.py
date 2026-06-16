@@ -20,6 +20,7 @@ _LEVEL_STYLE = {Level.NONDESTRUCTIVE: "L1", Level.INPUT: "L2",
 
 
 class Presenter(Protocol):
+    """The four lifecycle hooks the MotorOrgan calls to surface an action."""
     def present_intent(self, action: MotorAction, decision: Decision) -> None: ...
     def present_gate(self, action: MotorAction) -> None: ...
     def present_executed(self, action: MotorAction, result: dict) -> None: ...
@@ -27,6 +28,7 @@ class Presenter(Protocol):
 
 
 class NullPresenter:
+    """Headless no-op presenter; keeps the core testable without an overlay."""
     def present_intent(self, action, decision): pass
     def present_gate(self, action): pass
     def present_executed(self, action, result): pass
@@ -43,6 +45,7 @@ class RecordingPresenter:
 
 
 class OverlayPresenter:
+    """Maps motor lifecycle points to protocol commands, redacting secrets."""
     def __init__(self, sink, exclusions: ExclusionFilter) -> None:
         self._sink = sink
         self._exclusions = exclusions
@@ -67,20 +70,24 @@ class OverlayPresenter:
             pass  # overlay is never on the critical path
 
     def present_intent(self, action, decision) -> None:
+        """Highlight the target and banner the declared intent before acting."""
         x, y = self._rect(action)
         style = _LEVEL_STYLE.get(action.level, "default")
         self._send(Highlight(x=x - 24, y=y - 16, w=48, h=32, label=self._label(action), style=style))
         self._send(Banner(text=f"{action.name} • {action.declaration.intent}", level=style))
 
     def present_gate(self, action) -> None:
+        """Show the confirm-gate state while awaiting human validation."""
         x, y = self._rect(action)
         self._send(Highlight(x=x - 24, y=y - 16, w=48, h=32, label=self._label(action), style="gate"))
         self._send(Banner(text=f"CONFIRM • {action.name} • {self._label(action)}", level="L3"))
 
     def present_executed(self, action, result) -> None:
+        """Ripple at the target to confirm the action landed."""
         x, y = self._rect(action)
         self._send(Ripple(x=x, y=y))
 
     def present_refused(self, action, reason) -> None:
+        """Banner the refusal reason and clear any pending marks."""
         self._send(Banner(text=f"refused • {reason}", level="L1"))
         self._send(Clear())

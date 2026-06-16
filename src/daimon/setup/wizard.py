@@ -9,6 +9,7 @@ from typing import Callable, Protocol
 
 @dataclass
 class Step:
+    """One onboarding step: check() is satisfied, else act() then re-poll."""
     id: str
     title: str
     check: Callable[[], bool]
@@ -17,6 +18,7 @@ class Step:
 
 
 class IO(Protocol):
+    """Front-end output channel: a line emitter plus a blocking wait."""
     def say(self, message: str) -> None: ...
     def wait(self, seconds: float) -> None: ...
 
@@ -29,10 +31,12 @@ class RecordingIO:
 
 
 class Wizard:
+    """Runs an ordered list of steps over an injected IO; front-end-agnostic."""
     def __init__(self, steps: list[Step]) -> None:
         self._steps = steps
 
     def run(self, io: IO, *, max_polls: int = 30, poll_seconds: float = 1.0) -> bool:
+        """Run each step, polling check() after act(); True if all satisfied."""
         all_ok = True
         for step in self._steps:
             io.say(f"STEP {step.title}")

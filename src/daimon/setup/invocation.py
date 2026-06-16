@@ -32,6 +32,7 @@ def _bundled_windows() -> Path | None:
 
 
 def daimon_command() -> dict:
+    """Resolve the command+args an MCP client runs to start `daimon serve`."""
     if sys.platform == "win32":
         win = _bundled_windows()
         if win is not None:

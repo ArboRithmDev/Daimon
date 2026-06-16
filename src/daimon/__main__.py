@@ -32,6 +32,18 @@ def _run_server() -> int:
     return 0
 
 
+def _run_overlay() -> int:
+    # The overlay helper. MUST be a real subcommand: in the frozen .app the
+    # spawn target is the Daimon binary (sys.executable), not python, so
+    # `Daimon -m daimon.overlay.app` would land in the default branch below and
+    # launch ANOTHER TRAY instead of the overlay — every overlay spawn then
+    # piled up a duplicate menu-bar Daimon. Routing an explicit `overlay`
+    # argument fixes that for both frozen and source launches.
+    from daimon.overlay.app.__main__ import main as overlay_main
+    overlay_main()
+    return 0
+
+
 def _run_gui() -> int:
     from daimon.setup.gui.__main__ import main as gui_main
     return gui_main()
@@ -48,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     # Explicit commands win, in any mode.
     if argv and argv[0] == "serve":
         return _run_server()
+    if argv and argv[0] == "overlay":
+        return _run_overlay()
     if argv and argv[0] in _SUBCOMMANDS:
         from daimon.setup.cli import run_command
         return run_command(argv)

@@ -9,12 +9,16 @@ from ..motor.types import Level
 
 @dataclass(frozen=True)
 class ClientStatus:
+    """Whether a detected AI client currently has Daimon registered into it."""
+
     name: str
     registered: bool
 
 
 @dataclass(frozen=True)
 class TrayState:
+    """Immutable snapshot of everything the menu needs to render one frame."""
+
     version: str
     screen_ok: bool
     accessibility_ok: bool

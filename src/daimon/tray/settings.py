@@ -39,6 +39,7 @@ def _ts() -> str:
 
 
 def set_ceiling(name: str, path: Path) -> None:
+    """Persist the motor ceiling, clamped to VALIDATION so a menu can't reach L4."""
     try:
         level = Level[name.strip().upper()]
     except KeyError:
@@ -55,6 +56,7 @@ def set_ceiling(name: str, path: Path) -> None:
 
 
 def set_overlay(enabled: bool, path: Path) -> None:
+    """Persist the overlay on/off toggle, preserving other keys in the config."""
     data = _read(path)
     overlay = data.setdefault("overlay", {})
     if not isinstance(overlay, dict):

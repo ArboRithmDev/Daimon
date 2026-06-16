@@ -141,6 +141,7 @@ def _window_element(window: dict):
 
 
 def _resolve_root(window, root_point):
+    """Pick the root element: point wins, else target window, else frontmost app."""
     from ApplicationServices import (
         AXUIElementCopyElementAtPosition, AXUIElementCreateSystemWide,
         AXUIElementCreateApplication, kAXFocusedWindowAttribute,

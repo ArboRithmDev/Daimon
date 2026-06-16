@@ -16,10 +16,14 @@ from .watchdog import HoldWatchdog
 
 
 class Actuator(Protocol):
+    """The only thing allowed to mutate the host; swappable for testing."""
+
     def execute(self, action: MotorAction) -> dict: ...
 
 
 class FakeActuator:
+    """Test double: records actions instead of touching the host."""
+
     def __init__(self, fail: bool = False) -> None:
         self._fail = fail
         self.executed: list[MotorAction] = []
@@ -32,6 +36,8 @@ class FakeActuator:
 
 
 class MacOSActuator:
+    """Real backend: drives the host via Accessibility and synthetic CGEvents."""
+
     def __init__(self) -> None:
         self._watchdog = HoldWatchdog(
             timeout=10.0,
@@ -40,6 +46,7 @@ class MacOSActuator:
         )
 
     def execute(self, action: MotorAction) -> dict:
+        """Dispatch the action to its handler after ticking the hold watchdog."""
         self._watchdog.tick()
         handler = {
             "click": self._click,

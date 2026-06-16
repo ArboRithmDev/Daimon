@@ -20,9 +20,13 @@ def endpoint() -> tuple[str, int]:
 
 
 def create_server_socket() -> socket.socket:
-    """A bound, listening loopback socket for the overlay helper."""
+    """A bound, listening loopback socket for the overlay helper.
+
+    No SO_REUSEADDR: on Windows it lets a second process bind the SAME port,
+    which would spawn a twin overlay. The single-owner guarantee comes from the
+    launcher's exclusive lock (``bind_singleton``); a second bind here must fail.
+    """
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((_HOST, _PORT))
     srv.listen(64)
     return srv

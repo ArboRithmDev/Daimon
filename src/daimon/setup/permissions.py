@@ -16,6 +16,7 @@ PANE_ACCESSIBILITY = "x-apple.systempreferences:com.apple.preference.security?Pr
 
 @dataclass(frozen=True)
 class Permission:
+    """A single TCC permission with its grant state and how-to-fix guidance."""
     key: str
     label: str
     granted: bool
@@ -24,6 +25,7 @@ class Permission:
 
 
 class PermissionBackend(Protocol):
+    """Platform seam for checking/triggering TCC grants; faked in tests."""
     def screen_recording_ok(self) -> bool: ...
     def accessibility_ok(self) -> bool: ...
     def request_screen_recording(self) -> None: ...
@@ -32,6 +34,7 @@ class PermissionBackend(Protocol):
 
 
 class FakeBackend:
+    """In-memory backend recording requests/opens; no macOS dependency."""
     def __init__(self, screen=False, accessibility=False):
         self._screen = screen
         self._acc = accessibility
@@ -55,6 +58,7 @@ class WindowsBackend:
 
 
 class MacOSBackend:
+    """Real backend backed by Quartz/ApplicationServices TCC APIs."""
     def screen_recording_ok(self) -> bool:
         from Quartz import CGPreflightScreenCaptureAccess
         return bool(CGPreflightScreenCaptureAccess())
@@ -73,6 +77,7 @@ class MacOSBackend:
 
 
 def permissions_status(backend: PermissionBackend) -> list[Permission]:
+    """The permissions Daimon needs, each with its current grant state."""
     return [
         Permission("screen_recording", "Screen Recording (Vue)", backend.screen_recording_ok(),
                    PANE_SCREEN, "Lets Daimon see your screen."),
@@ -90,6 +95,7 @@ def permissions_status(backend: PermissionBackend) -> list[Permission]:
 
 
 def status_marker_path() -> Path:
+    """Path of the marker file where the server records its grant status."""
     from ..userdata import data_dir
     return data_dir() / "permissions.json"
 

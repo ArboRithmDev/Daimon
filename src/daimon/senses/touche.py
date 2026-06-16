@@ -25,9 +25,12 @@ _PERMISSION_HINT = (
 
 
 class Touche(Sense):
+    """Read-only touch sense: feels the a11y tree, never acts on it."""
+
     name = "touche"
 
     def register(self, mcp) -> None:
+        """Expose the bounded tree snapshot and point-probe tools, both redacted."""
         @mcp.tool(
             name="touche_tree",
             description=(

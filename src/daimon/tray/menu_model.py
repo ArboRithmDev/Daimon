@@ -16,6 +16,8 @@ _SETTABLE_CEILINGS = (Level.READ, Level.NONDESTRUCTIVE, Level.INPUT, Level.VALID
 
 @dataclass(frozen=True)
 class MenuItem:
+    """One renderer-agnostic menu entry; the AppKit layer maps it to an NSMenuItem."""
+
     kind: str                      # label|separator|action|radio|checkbox|submenu
     label: str = ""
     action_id: str = ""
@@ -25,10 +27,12 @@ class MenuItem:
 
 
 def _dot(ok: bool) -> str:
+    """Status glyph: filled when a permission is granted, hollow otherwise."""
     return "✅" if ok else "⚪"
 
 
 def build_menu(state: TrayState) -> list[MenuItem]:
+    """Build the full tray menu from a state snapshot — pure, so it can be unit-tested."""
     ceiling_children = tuple(
         MenuItem(kind="radio", label=lvl.name, action_id=f"set_ceiling:{lvl.name}",
                  checked=(state.ceiling == lvl))

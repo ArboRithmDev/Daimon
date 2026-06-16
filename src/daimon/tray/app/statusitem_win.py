@@ -14,24 +14,25 @@ class WindowsTrayController:
     def __init__(self) -> None:
         self._app = None
         self._tray = None
-        self._menu = None       # keep a reference so the QMenu isn't GC'd
-        self._timer = None
+        self._menu = None       # the persistent context menu, refreshed on open
         self._onboard = None
 
     def install(self, app) -> None:
-        from PySide6 import QtCore, QtWidgets
+        from PySide6 import QtWidgets
 
         self._app = app
         self._tray = QtWidgets.QSystemTrayIcon()
         self._tray.setIcon(self._icon())
         self._tray.setToolTip("Daimon")
-        self._rebuild()
-        self._tray.show()
 
-        self._timer = QtCore.QTimer()
-        self._timer.setInterval(2000)
-        self._timer.timeout.connect(self._rebuild)
-        self._timer.start()
+        # One persistent menu, repopulated each time it is about to open. A
+        # periodic setContextMenu() would replace the menu WHILE it is open and
+        # dismiss it after a couple of seconds (the "menu closes itself" bug).
+        self._menu = QtWidgets.QMenu()
+        self._menu.aboutToShow.connect(self._refresh)
+        self._refresh()
+        self._tray.setContextMenu(self._menu)
+        self._tray.show()
 
     def _icon(self):
         from pathlib import Path
@@ -54,22 +55,18 @@ class WindowsTrayController:
         painter.end()
         return QtGui.QIcon(pm)
 
-    def _rebuild(self) -> None:
-        from PySide6 import QtWidgets
-
+    def _refresh(self) -> None:
+        """Repopulate the persistent menu with fresh state (called on open)."""
         from ..menu_model import build_menu
         from ..state import gather
         try:
             items = build_menu(gather())
         except Exception:
             from ...applog import log_exception
-            log_exception("tray/_rebuild")
+            log_exception("tray/_refresh")
             return
-        menu = QtWidgets.QMenu()
-        self._fill(menu, items)
-        self._menu = menu
-        if self._tray is not None:
-            self._tray.setContextMenu(menu)
+        self._menu.clear()
+        self._fill(self._menu, items)
 
     def _fill(self, menu, items) -> None:
         for item in items:
@@ -104,15 +101,15 @@ class WindowsTrayController:
 
         if action_id.startswith("set_ceiling:"):
             set_ceiling(action_id.split(":", 1)[1], _MOTOR_DEFAULT)
-            self._rebuild()
+            self._refresh()
         elif action_id == "toggle_overlay":
             from ..state import gather
             set_overlay(not gather().overlay_on, _OVERLAY_DEFAULT)
-            self._rebuild()
+            self._refresh()
         elif action_id == "install_all":
             from ...setup.deploy import install_all
             install_all()
-            self._rebuild()
+            self._refresh()
         elif action_id.startswith("toggle_client:"):
             name = action_id.split(":", 1)[1]
             from ...setup.clients import base
@@ -124,7 +121,7 @@ class WindowsTrayController:
                     base.uninstall(adapter, "daimon")
                 else:
                     base.install(adapter, "daimon", daimon_command())
-            self._rebuild()
+            self._refresh()
         elif action_id == "run_setup":
             from ...setup.gui.window_win import OnboardingController
             self._onboard = OnboardingController()

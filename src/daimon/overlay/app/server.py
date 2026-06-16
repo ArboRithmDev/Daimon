@@ -21,26 +21,32 @@ Falls back to a direct apply call if AppHelper is unavailable for any reason.
 from __future__ import annotations
 
 import os
-import socket
 import threading
 
-from ..launcher import socket_path
 from ..protocol import Clear, decode
 
 # Seconds with no connected client before the overlay process exits. Short
 # enough that ghost windows never outstay the client by much; long enough to
 # survive a client reconnecting between commands.
 _IDLE_GRACE = 3.0
+# A spawned overlay that never gets a single client (e.g. the loser of a spawn
+# race, or a spawn whose driver vanished before sending) reaps itself after
+# this longer startup window.
+_STARTUP_GRACE = 60.0
 
 
 class OverlayServer:
+    """Accepts client connections, applies commands to the Scene, self-reaps idle."""
     def __init__(self, scene, flip_height: float, idle_grace: float = _IDLE_GRACE,
-                 *, scheduler=None, terminate=None, main_dispatch=None, listener=None):
+                 *, listen_sock=None, startup_grace: float = _STARTUP_GRACE,
+                 scheduler=None, terminate=None, main_dispatch=None):
         self._scene = scene
         # flip_height=None disables the Y flip (Windows/Qt is top-left origin like
         # the protocol; macOS passes the window height to flip to bottom-left).
         self._flip = flip_height
         self._grace = idle_grace
+        self._startup_grace = startup_grace
+        self._sock = listen_sock
         self._lock = threading.Lock()
         self._clients = 0
         # Bumped whenever the client count changes; a pending quit timer only
@@ -51,23 +57,17 @@ class OverlayServer:
         self._scheduler = scheduler            # (delay, fn) -> None
         self._terminate = terminate            # () -> None
         self._main_dispatch = main_dispatch    # (fn, arg) -> None
-        self._listener = listener              # () -> bound listening socket
 
     def start(self) -> None:
+        """Launch the accept loop on a daemon thread."""
         threading.Thread(target=self._serve, daemon=True).start()
 
-    def _default_listener(self):
-        path = socket_path()
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
-        srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(path); srv.listen(64)
-        return srv
-
     def _serve(self) -> None:
-        srv = self._listener() if self._listener is not None else self._default_listener()
+        srv = self._sock
+        if srv is None:
+            return  # no socket acquired → nothing to serve
+        # Reap ourselves if no client ever connects (lost a spawn race, etc.).
+        self._arm_quit(self._startup_grace)
         while True:
             try:
                 conn, _ = srv.accept()
@@ -112,7 +112,7 @@ class OverlayServer:
             self._on_main(self._scene.apply, Clear())
             self._arm_quit()
 
-    def _arm_quit(self) -> None:
+    def _arm_quit(self, grace=None) -> None:
         with self._lock:
             self._quit_gen += 1
             gen = self._quit_gen
@@ -124,7 +124,7 @@ class OverlayServer:
                 return  # a client connected in the meantime
             self._do_terminate()
 
-        self._schedule(self._grace, _fire)
+        self._schedule(self._grace if grace is None else grace, _fire)
 
     def _schedule(self, delay, fn) -> None:
         if self._scheduler is not None:

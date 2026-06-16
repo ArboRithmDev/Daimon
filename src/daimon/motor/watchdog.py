@@ -10,6 +10,8 @@ from typing import Callable
 
 
 class HoldWatchdog:
+    """Safety net that auto-releases held inputs past their deadline."""
+
     def __init__(self, timeout: float, release: Callable[[str], None], clock: Callable[[], float]):
         self._timeout = timeout
         self._release = release
@@ -17,16 +19,20 @@ class HoldWatchdog:
         self._held: dict[str, float] = {}
 
     def hold(self, handle: str) -> None:
+        """Register a held input with a release deadline."""
         self._held[handle] = self._clock() + self._timeout
 
     def release_hold(self, handle: str) -> None:
+        """Clear a hold that was released normally."""
         self._held.pop(handle, None)
 
     def tick(self) -> None:
+        """Force-release any hold whose deadline has passed (fail-safe)."""
         now = self._clock()
         for handle in [h for h, deadline in self._held.items() if now >= deadline]:
             self._held.pop(handle, None)
             self._release(handle)
 
     def active(self) -> set[str]:
+        """Return the handles of currently-held inputs."""
         return set(self._held)

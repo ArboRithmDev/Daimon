@@ -41,3 +41,4 @@ design/
 # Windows port dev venv
 .venv-win/
 build_win.log
+build/daimon_win/

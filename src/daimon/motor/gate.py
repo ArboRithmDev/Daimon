@@ -15,6 +15,7 @@ _TIMEOUT_SECONDS = 30
 
 
 def format_prompt(action: MotorAction) -> str:
+    """Render the human-facing confirmation text for a point-of-no-return action."""
     t = action.target
     where = t.label or t.role or (f"({t.x},{t.y})" if t.x is not None else "unknown target")
     return (
@@ -25,6 +26,8 @@ def format_prompt(action: MotorAction) -> str:
 
 
 class HumanGate(Protocol):
+    """The out-of-band channel that asks a human to authorize an action."""
+
     def confirm(self, action: MotorAction) -> bool: ...
 
 
@@ -44,6 +47,7 @@ class MacOSGate:
     """Native modal dialog via osascript. Timeout/error → DENY (fail-safe)."""
 
     def confirm(self, action: MotorAction) -> bool:
+        """Ask the human via a native dialog; any timeout or error denies (fail-safe)."""
         import subprocess
 
         prompt = format_prompt(action).replace('"', "'")

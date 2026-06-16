@@ -23,6 +23,7 @@ def _now() -> str:
 
 
 def build_consent() -> ConsentManager:
+    """Construct the ConsentManager wired to the real ledger and state file."""
     mcfg = load_motor_config()
     logs = logs_dir()
     state = config_dir() / "motor.state.json"
@@ -38,6 +39,7 @@ def build_consent() -> ConsentManager:
 
 
 def build_organ() -> MotorOrgan:
+    """Assemble the fully-wired MotorOrgan with real macOS backends from config."""
     consent = build_consent()
     exclusions = ExclusionFilter(load_exclusions().exclusions)
     guard = PolicyGuard(exclusions, ceiling_provider=consent.current_ceiling)

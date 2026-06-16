@@ -14,7 +14,7 @@ The motor organ ("the hands") is out of scope and lives elsewhere.
 # frozen .app has no dist metadata, so it falls back to the literal below.
 # `tests/test_version.py` asserts this fallback matches pyproject, so the two
 # can never silently drift again (the menu used to show a stale 0.0.1).
-_FALLBACK_VERSION = "0.0.3"
+_FALLBACK_VERSION = "0.0.7"
 
 try:
     from importlib.metadata import PackageNotFoundError
