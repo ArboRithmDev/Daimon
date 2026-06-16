@@ -108,13 +108,10 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
     ``region`` is an optional {x, y, width, height} crop applied before
     downscaling. Mirrors ``screen.capture_display``.
     """
-    from ..applog import log_message
     from PIL import ImageGrab
 
     left, top, right, bottom = _monitor_bbox(display_index)
-    log_message(f"  capture: ImageGrab bbox=({left},{top},{right},{bottom})")
     img = ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).convert("RGB")
-    log_message(f"  capture: grabbed {img.size}")
     img = crop_region(img, region)
     if max_width and img.width > max_width:
         ratio = max_width / img.width

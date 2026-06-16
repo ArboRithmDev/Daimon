@@ -63,12 +63,8 @@ class Vue(Sense):
         )
         def vue_snapshot(display: int = 0, max_width: int = 720,
                          region: dict | None = None) -> MCPImage:
-            from ..applog import log_message
-            log_message(f"vue_snapshot: START display={display} max_width={max_width}")
             screen = backends.build_screen()
             frame = screen.capture_display(display_index=display, max_width=max_width, region=region)
-            log_message(f"vue_snapshot: capture DONE ({frame.width}x{frame.height}) "
-                        f"frontmost={frame.frontmost_bundle_id!r}")
 
             gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
             if gate.refused:
@@ -77,16 +73,13 @@ class Vue(Sense):
             image = self._exclusions.redact_image(frame.image)
             try:
                 rects = self._secret_rects(frame.frontmost_bundle_id)
-                log_message(f"vue_snapshot: secret-scan DONE ({len(rects)} rects)")
                 from ..exclusions import black_out_rects
                 black_out_rects(image, rects)
             except Exception:
-                log_message("vue_snapshot: secret-scan errored (ignored)")
                 pass  # best-effort; never fail a capture on redaction-probe error
 
             buf = io.BytesIO()
             image.save(buf, format="PNG")
-            log_message("vue_snapshot: encode DONE — returning")
             return MCPImage(data=buf.getvalue(), format="png")
 
     def _secret_rects(self, bundle_id: str | None) -> list[dict]:
