@@ -101,15 +101,20 @@ def _grab_monitor_rgb(monitor_index: int):
     def on_closed():
         done.set()
 
+    from ..applog import log_message
+    log_message(f"  WGC: start_free_threaded (monitor={monitor_index})")
     control = cap.start_free_threaded()
+    log_message("  WGC: started, waiting for frame")
     if not done.wait(timeout=_CAPTURE_TIMEOUT):
         try:
             control.stop()
         except Exception:
             pass
+        log_message("  WGC: TIMED OUT waiting for frame")
         raise RuntimeError("WGC capture timed out — no frame arrived.")
     if "rgb" not in holder:
         raise RuntimeError("WGC capture produced no frame.")
+    log_message("  WGC: frame received")
     return Image.fromarray(holder["rgb"], "RGB")
 
 
@@ -134,12 +139,16 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
         ratio = max_width / img.width
         img = img.resize((max_width, int(img.height * ratio)))
 
+    from ..applog import log_message
+    log_message("  capture: resolving frontmost window")
+    fb = frontmost_bundle_id()
+    log_message(f"  capture: frontmost resolved ({fb!r})")
     return Frame(
         image=img,
         width=img.width,
         height=img.height,
         display_index=display_index,
-        frontmost_bundle_id=frontmost_bundle_id(),
+        frontmost_bundle_id=fb,
     )
 
 
