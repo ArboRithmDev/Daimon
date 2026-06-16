@@ -15,7 +15,9 @@ dependencies = [
     "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
     # --- Windows backends ---
     "pywin32>=306; sys_platform == 'win32'",          # foreground window, displays
-    "windows-capture>=1.4; sys_platform == 'win32'",  # WGC screen capture (Vue)
+    # Vue captures via Pillow ImageGrab (BitBlt) — no extra dep. windows-capture
+    # (WGC) was dropped: it pulls OpenCV, whose first import in a frozen exe
+    # stalls for minutes and adds ~130 MB.
     "comtypes>=1.4; sys_platform == 'win32'",         # UIA COM bindings
     "uiautomation>=2.0; sys_platform == 'win32'",     # UIA tree (Touché)
     "PySide6>=6.7; sys_platform == 'win32'",          # overlay + onboarding GUI (the face)

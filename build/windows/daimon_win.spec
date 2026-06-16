@@ -45,7 +45,6 @@ collected_binaries: list[tuple[str, str]] = []
 for pkg in (
     "comtypes",
     "uiautomation",
-    "windows_capture",
     "win32api",
     "win32gui",
     "win32con",
@@ -93,7 +92,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["test", "tests", "pytest", "_pytest", "ruff", "setuptools"] + _QT_EXCLUDES,
+    excludes=(["test", "tests", "pytest", "_pytest", "ruff", "setuptools",
+               "cv2", "numpy", "windows_capture"]  # WGC path dropped (see screen_win)
+              + _QT_EXCLUDES),
     cipher=block_cipher,
     noarchive=False,
 )

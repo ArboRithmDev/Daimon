@@ -6,9 +6,9 @@ import pytest
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows-only backend")
 
-# Backend deps (the [win] extra). Skip cleanly where they are not installed.
+# Backend deps. Skip cleanly where they are not installed.
 pytest.importorskip("win32api")
-pytest.importorskip("windows_capture")
+pytest.importorskip("PIL")
 
 
 def test_list_displays_returns_at_least_one():

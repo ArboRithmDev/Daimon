@@ -1,20 +1,22 @@
 """Windows screen-capture backend for the Vue sense.
 
-Uses Windows.Graphics.Capture (WGC) via the ``windows-capture`` package to grab
-a monitor as a PIL image — the Windows twin of ``screen.py`` (Quartz). Returns
-raw pixels only; Daimon does no vision/OCR. WGC is the modern capture path and
-honours per-window capture-exclusion (the overlay sets WDA_EXCLUDEFROMCAPTURE),
-so Daimon's own overlay never self-films.
+Captures a monitor as a PIL image via Pillow's ImageGrab (BitBlt) — the Windows
+twin of ``screen.py`` (Quartz). Returns raw pixels only; Daimon does no
+vision/OCR.
 
-Daimon is pull-driven, so each call performs a *one-shot* grab: a free-threaded
-WGC session is started, the first frame is copied out, and the session is
-stopped immediately. The pure geometry/crop helpers and the Display/Frame value
-types are shared with the macOS module.
+Why not WGC: the ``windows-capture`` (Windows.Graphics.Capture) package pulls in
+OpenCV (cv2, ~109 MB), whose first import in a frozen exe stalls for *minutes*
+(antivirus scanning the DLLs cold) — and bloats the bundle. BitBlt via ImageGrab
+is already in Pillow (a core dep), imports instantly, and is fully sufficient for
+desktop perception. The overlay stays invisible to capture either way: that is
+enforced by the overlay window's ``WDA_EXCLUDEFROMCAPTURE`` affinity, which BitBlt
+honours too — not by the capture backend.
+
+The process is made per-monitor DPI-aware so monitor rectangles, captured pixels,
+UIA bounds and pointer coordinates all share one physical coordinate space.
 """
 
 from __future__ import annotations
-
-import threading
 
 # Shared pure types + crop (screen.py has no module-level OS import).
 from .screen import Display, Frame, crop_region
@@ -25,7 +27,22 @@ __all__ = [
     "capture_display", "capture_main_display",
 ]
 
-_CAPTURE_TIMEOUT = 5.0
+
+def _set_dpi_aware() -> None:
+    """Make the process per-monitor DPI-aware so win32 monitor rects, ImageGrab
+    pixels, UIA bounds and SendInput coords agree (physical pixels). Best-effort;
+    harmless if already set."""
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_DPI_AWARE
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+
+_set_dpi_aware()
 
 
 def frontmost_bundle_id() -> str | None:
@@ -72,50 +89,16 @@ def list_displays() -> list[Display]:
     return out
 
 
-def _grab_monitor_rgb(monitor_index: int):
-    """One-shot WGC grab of a monitor → (PIL RGB image). monitor_index is
-    1-based per windows-capture's convention."""
-    from PIL import Image
-    from windows_capture import WindowsCapture
-
-    holder: dict = {}
-    done = threading.Event()
-
-    cap = WindowsCapture(
-        cursor_capture=False,
-        draw_border=False,
-        monitor_index=monitor_index,
-    )
-
-    @cap.event
-    def on_frame_arrived(frame, capture_control):
-        try:
-            buf = frame.frame_buffer  # H x W x 4, BGRA
-            h, w = buf.shape[0], buf.shape[1]
-            holder["rgb"] = buf[:h, :w, [2, 1, 0]].copy()  # BGR(A)->RGB
-        finally:
-            capture_control.stop()
-            done.set()
-
-    @cap.event
-    def on_closed():
-        done.set()
-
-    from ..applog import log_message
-    log_message(f"  WGC: start_free_threaded (monitor={monitor_index})")
-    control = cap.start_free_threaded()
-    log_message("  WGC: started, waiting for frame")
-    if not done.wait(timeout=_CAPTURE_TIMEOUT):
-        try:
-            control.stop()
-        except Exception:
-            pass
-        log_message("  WGC: TIMED OUT waiting for frame")
-        raise RuntimeError("WGC capture timed out — no frame arrived.")
-    if "rgb" not in holder:
-        raise RuntimeError("WGC capture produced no frame.")
-    log_message("  WGC: frame received")
-    return Image.fromarray(holder["rgb"], "RGB")
+def _monitor_bbox(display_index: int):
+    """(left, top, right, bottom) of a monitor in the virtual-screen space."""
+    import win32api
+    mons = win32api.EnumDisplayMonitors()
+    if not mons:
+        raise RuntimeError("No active displays found.")
+    if display_index < 0 or display_index >= len(mons):
+        raise IndexError(
+            f"display_index {display_index} out of range (0..{len(mons) - 1})")
+    return win32api.GetMonitorInfo(mons[display_index][0])["Monitor"]
 
 
 def capture_display(display_index: int = 0, max_width: int | None = 720,
@@ -125,24 +108,19 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
     ``region`` is an optional {x, y, width, height} crop applied before
     downscaling. Mirrors ``screen.capture_display``.
     """
-    displays = list_displays()
-    if not displays:
-        raise RuntimeError("No active displays found.")
-    if display_index < 0 or display_index >= len(displays):
-        raise IndexError(
-            f"display_index {display_index} out of range (0..{len(displays) - 1})"
-        )
+    from ..applog import log_message
+    from PIL import ImageGrab
 
-    img = _grab_monitor_rgb(display_index + 1)  # windows-capture is 1-based
+    left, top, right, bottom = _monitor_bbox(display_index)
+    log_message(f"  capture: ImageGrab bbox=({left},{top},{right},{bottom})")
+    img = ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).convert("RGB")
+    log_message(f"  capture: grabbed {img.size}")
     img = crop_region(img, region)
     if max_width and img.width > max_width:
         ratio = max_width / img.width
         img = img.resize((max_width, int(img.height * ratio)))
 
-    from ..applog import log_message
-    log_message("  capture: resolving frontmost window")
     fb = frontmost_bundle_id()
-    log_message(f"  capture: frontmost resolved ({fb!r})")
     return Frame(
         image=img,
         width=img.width,
