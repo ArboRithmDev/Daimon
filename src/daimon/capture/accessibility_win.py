@@ -48,6 +48,28 @@ def _ensure_comtypes_gen_dir() -> None:
 
 _ensure_comtypes_gen_dir()
 
+_uia_quieted = False
+
+
+def _uia():
+    """Import uiautomation, silencing its file logger on first use.
+
+    uiautomation otherwise drops an ``@AutomationLog.txt`` in the process's
+    current directory — which, for the MCP server, is wherever the AI client
+    launched it. Route the log to the null device so nothing litters the user's
+    folders.
+    """
+    global _uia_quieted
+    import uiautomation as auto
+    if not _uia_quieted:
+        try:
+            import os
+            auto.Logger.SetLogFile(os.devnull)
+        except Exception:
+            pass
+        _uia_quieted = True
+    return auto
+
 
 def is_trusted() -> bool:
     """UIA needs no per-app permission grant on Windows."""
@@ -156,7 +178,7 @@ def _raw_tree(root, max_nodes: int, deadline: float | None = None) -> dict:
 
 def _window_control(window: dict):
     """Resolve a top-level window control by {pid|title}."""
-    import uiautomation as auto
+    auto = _uia()
 
     pid = window.get("pid")
     title = window.get("title")
@@ -172,7 +194,7 @@ def _window_control(window: dict):
 
 
 def _resolve_root(window, root_point):
-    import uiautomation as auto
+    auto = _uia()
 
     if root_point is not None:
         el = auto.ControlFromPoint(int(root_point["x"]), int(root_point["y"]))
@@ -214,7 +236,7 @@ def snapshot_tree(
 
 def element_at(x: int, y: int) -> dict:
     """Touché actif: the element under a screen point."""
-    import uiautomation as auto
+    auto = _uia()
 
     el = auto.ControlFromPoint(int(x), int(y))
     if el is None:
@@ -224,7 +246,7 @@ def element_at(x: int, y: int) -> dict:
 
 def focused_element() -> dict:
     """The system-wide focused UI element."""
-    import uiautomation as auto
+    auto = _uia()
 
     el = auto.GetFocusedControl()
     if el is None:

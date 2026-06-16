@@ -39,6 +39,16 @@ Set-Location $root
 $version = (Select-String -Path "pyproject.toml" -Pattern '^version\s*=\s*"(.+)"').Matches[0].Groups[1].Value
 Write-Host "Building Daimon $version" -ForegroundColor Cyan
 
+# 0. Stop any running Daimon.exe -------------------------------------------
+# A running instance (MCP server spawned by a client, the tray, or the overlay)
+# holds dist\Daimon files open, so PyInstaller can't overwrite them.
+$running = Get-Process Daimon -ErrorAction SilentlyContinue
+if ($running) {
+    Write-Host "Stopping $($running.Count) running Daimon.exe..." -ForegroundColor Yellow
+    $running | Stop-Process -Force
+    Start-Sleep -Milliseconds 600
+}
+
 # 1. PyInstaller ------------------------------------------------------------
 # --clean for release (cold) builds; -Fast skips it to reuse the cache (dev).
 $piArgs = @("build\windows\daimon_win.spec", "--noconfirm")
