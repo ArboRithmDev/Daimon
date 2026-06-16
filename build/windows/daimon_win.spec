@@ -37,17 +37,15 @@ hidden_imports: list[str] = []
 collected_datas: list[tuple[str, str]] = []
 collected_binaries: list[tuple[str, str]] = []
 
-# Windows backends + mcp + imaging + config. collect_all sweeps
-# data/binaries/hidden imports (PySide6 plugins, windows-capture's native lib,
-# comtypes/uiautomation, numpy/cv2 pulled by windows-capture, pywin32).
+# NOTE: do NOT collect_all("PySide6"). That drags in EVERY Qt module
+# (WebEngine, 3D, Charts, Bluetooth, …) — ~640 MB and minutes of analysis.
+# PyInstaller's bundled PySide6 hook collects only the Qt modules actually
+# imported (QtCore/QtGui/QtWidgets here). Same for numpy/cv2: their hooks fire
+# when windows-capture imports them, so we don't sweep them wholesale either.
 for pkg in (
-    "PySide6",
-    "shiboken6",
     "comtypes",
     "uiautomation",
     "windows_capture",
-    "numpy",
-    "cv2",
     "win32api",
     "win32gui",
     "win32con",
@@ -64,6 +62,19 @@ for pkg in (
     collected_datas.extend(datas)
     collected_binaries.extend(binaries)
     hidden_imports.extend(hidden)
+
+# Heavy Qt modules we never use — exclude defensively so no transitive hint
+# pulls them back in. (The hook already skips unimported modules; this pins it.)
+_QT_EXCLUDES = [
+    "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineQuick",
+    "PySide6.QtQuick", "PySide6.QtQuick3D", "PySide6.QtQml", "PySide6.QtCharts",
+    "PySide6.QtDataVisualization", "PySide6.QtMultimedia", "PySide6.QtMultimediaWidgets",
+    "PySide6.Qt3DCore", "PySide6.Qt3DRender", "PySide6.Qt3DExtras", "PySide6.QtPdf",
+    "PySide6.QtPdfWidgets", "PySide6.QtBluetooth", "PySide6.QtPositioning",
+    "PySide6.QtSensors", "PySide6.QtSerialPort", "PySide6.QtSql", "PySide6.QtTest",
+    "PySide6.QtNetworkAuth", "PySide6.QtWebSockets", "PySide6.QtWebChannel",
+    "PySide6.QtDesigner", "PySide6.QtHelp", "PySide6.QtUiTools",
+]
 
 # Brand assets — the tray glyph loaded by the status item.
 _assets = src_root / "daimon" / "assets"
@@ -82,7 +93,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["test", "tests", "pytest", "_pytest", "ruff", "setuptools"],
+    excludes=["test", "tests", "pytest", "_pytest", "ruff", "setuptools"] + _QT_EXCLUDES,
     cipher=block_cipher,
     noarchive=False,
 )

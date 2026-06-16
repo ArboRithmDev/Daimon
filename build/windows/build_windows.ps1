@@ -27,7 +27,8 @@ param(
     [string]$CertSubject = $env:DAIMON_CERT_SUBJECT,
     [string]$TimestampUrl = "http://timestamp.digicert.com",
     [switch]$NoSign,
-    [switch]$NoInstaller
+    [switch]$NoInstaller,
+    [switch]$Fast   # skip --clean: reuse PyInstaller's analysis cache (fast dev rebuilds)
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +40,10 @@ $version = (Select-String -Path "pyproject.toml" -Pattern '^version\s*=\s*"(.+)"
 Write-Host "Building Daimon $version" -ForegroundColor Cyan
 
 # 1. PyInstaller ------------------------------------------------------------
-& $Python -m PyInstaller "build\windows\daimon_win.spec" --clean --noconfirm
+# --clean for release (cold) builds; -Fast skips it to reuse the cache (dev).
+$piArgs = @("build\windows\daimon_win.spec", "--noconfirm")
+if (-not $Fast) { $piArgs = @("--clean") + $piArgs }
+& $Python -m PyInstaller @piArgs
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
 $distDir = Join-Path $root "dist\Daimon"
