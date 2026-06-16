@@ -19,6 +19,16 @@ def test_uses_console_script_when_present(monkeypatch):
     assert entry["env"] == {}
 
 
+def test_frozen_build_runs_itself_with_serve(monkeypatch):
+    # A frozen exe must register `<itself> serve` — never `-m` (which the frozen
+    # dispatcher ignores, landing in the tray instead of the server).
+    monkeypatch.setattr(invocation.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(invocation.sys, "executable", r"D:\dist\Daimon\Daimon.exe")
+    entry = invocation.daimon_command()
+    assert entry["command"] == r"D:\dist\Daimon\Daimon.exe"
+    assert entry["args"] == ["serve"]
+
+
 def test_falls_back_to_python_module(monkeypatch):
     _no_bundle(monkeypatch)
     monkeypatch.setattr(invocation.shutil, "which", lambda n: None)

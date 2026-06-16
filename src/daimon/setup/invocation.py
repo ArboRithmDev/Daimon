@@ -4,10 +4,13 @@ The server is always launched with an explicit `serve` argument so it never
 depends on no-arg defaulting (which, inside the .app, shows the onboarding GUI).
 
 Resolution order:
-  1. the bundled binary from an installed Daimon (the .app on macOS, the
+  1. a frozen build runs ITSELF: `<sys.executable> serve` (the running Daimon
+     binary, wherever it lives — installed or a dist/ test build). Never `-m`:
+     the frozen exe ignores it and would launch the tray instead of the server.
+  2. the bundled binary from an installed Daimon (the .app on macOS, the
      Program Files install on Windows),
-  2. an installed `daimon` console script,
-  3. `python -m daimon` with the current interpreter (venv/source checkout).
+  3. an installed `daimon` console script,
+  4. `python -m daimon` with the current interpreter (venv/source checkout).
 """
 
 from __future__ import annotations
@@ -33,6 +36,12 @@ def _bundled_windows() -> Path | None:
 
 def daimon_command() -> dict:
     """Resolve the command+args an MCP client runs to start `daimon serve`."""
+    # A frozen build IS the dispatcher — run it directly with `serve`. This is the
+    # currently-running exe (a dist/ test build or an installed one), so it works
+    # before installation too. `-m` would be ignored by the frozen exe and land
+    # in the tray branch (the same trap as the overlay spawn).
+    if getattr(sys, "frozen", False):
+        return {"command": sys.executable, "args": ["serve"], "env": {}}
     if sys.platform == "win32":
         win = _bundled_windows()
         if win is not None:
