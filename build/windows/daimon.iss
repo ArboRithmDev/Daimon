@@ -18,11 +18,13 @@ AppId={{A7C0E2D6-7B4E-4E2A-9F3D-DA1MON000001}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+; Per-user install (no elevation): with PrivilegesRequired=lowest, {autopf}
+; resolves to %LOCALAPPDATA%\Programs\Daimon. This lets the auto-updater replace
+; the bundle WITHOUT a UAC prompt every update — and fits the no-TCC model.
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-; Per-user install needs no elevation (privileges lowest); fits the no-TCC model.
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequired=lowest
 OutputDir=..\..\dist
 OutputBaseFilename=Daimon-{#MyAppVersion}-setup
 Compression=lzma2
