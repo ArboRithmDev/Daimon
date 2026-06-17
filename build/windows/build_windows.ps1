@@ -97,6 +97,13 @@ if (-not $NoInstaller) {
     $installer = Join-Path $root "dist\Daimon-$version-setup.exe"
     if ((-not $NoSign) -and (Test-Path $installer)) { Invoke-Sign $installer }
     Write-Host "Installer: $installer" -ForegroundColor Green
+
+    # Release manifest: add the win64 asset to dist\latest.json + SHA256SUMS
+    # (publish both to the GitHub release; clients verify the hash before applying).
+    if (Test-Path $installer) {
+        & $Python "build\make_manifest.py" --version $version `
+            --out (Join-Path $root "dist") --platform win64 --asset $installer
+    }
 } else {
     Write-Host "Skipping installer (-NoInstaller)." -ForegroundColor Yellow
 }
