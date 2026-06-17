@@ -74,10 +74,26 @@ if (-not $NoSign) {
 }
 
 # 3. Installer (Inno Setup) -------------------------------------------------
+function Resolve-Iscc {
+    $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $std = @(
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
+    )
+    return ($std | Where-Object { Test-Path $_ } | Select-Object -First 1)
+}
+
 if (-not $NoInstaller) {
+    $iscc = Resolve-Iscc
+    if (-not $iscc) {
+        throw "Inno Setup (ISCC.exe) not found on PATH or in Program Files. " +
+              "Install it (winget install --id JRSoftware.InnoSetup -e) or pass -NoInstaller."
+    }
     $iss = Join-Path $root "build\windows\daimon.iss"
-    & iscc "/DMyAppVersion=$version" $iss
-    if ($LASTEXITCODE -ne 0) { throw "Inno Setup (iscc) failed" }
+    & $iscc "/DMyAppVersion=$version" $iss
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup (ISCC.exe) failed" }
     $installer = Join-Path $root "dist\Daimon-$version-setup.exe"
     if ((-not $NoSign) -and (Test-Path $installer)) { Invoke-Sign $installer }
     Write-Host "Installer: $installer" -ForegroundColor Green

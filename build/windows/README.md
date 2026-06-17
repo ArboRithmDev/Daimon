@@ -16,7 +16,8 @@ Authenticode certificate (Daimon's CI does not hold signing keys).
 - **signtool** (Windows SDK) on PATH, and a code-signing certificate in your
   store. An **EV** cert gives instant SmartScreen reputation; an **OV** cert
   earns it over time (early downloads may see a SmartScreen warning).
-- **Inno Setup 6** (`iscc` on PATH) for the installer.
+- **Inno Setup 6** for the installer (`winget install --id JRSoftware.InnoSetup -e`).
+  The build auto-locates `ISCC.exe` on PATH or in Program Files — no PATH setup needed.
 
 ## Build
 
