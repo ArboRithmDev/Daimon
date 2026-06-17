@@ -101,9 +101,16 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Single windowed dispatcher (no console flash on double-click; stdio still works
-# when an MCP client spawns `Daimon.exe serve` with inherited pipes).
-exe = EXE(
+# Two executables, distinct names (no case-collision), sharing one payload:
+#
+#  * Daimon.exe     — WINDOWED. Double-click entry: the resident tray + onboarding.
+#                     console=False so there is no console flash.
+#  * daimon-mcp.exe — CONSOLE. What MCP clients spawn as `daimon-mcp.exe serve`.
+#                     A GUI-subsystem exe does NOT work as an stdio MCP server for
+#                     stricter clients (e.g. Antigravity/Gemini won't load it) — the
+#                     server MUST be a console-subsystem process, like every other
+#                     working MCP server. So the server gets its own console exe.
+exe_gui = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
     name="Daimon",
@@ -112,8 +119,17 @@ exe = EXE(
     icon=icon_arg,
 )
 
+exe_mcp = EXE(
+    pyz, a.scripts, [],
+    exclude_binaries=True,
+    name="daimon-mcp",
+    debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
+    console=True, disable_windowed_traceback=False,
+    icon=icon_arg,
+)
+
 coll = COLLECT(
-    exe,
+    exe_gui, exe_mcp,
     a.binaries, a.zipfiles, a.datas,
     strip=False, upx=False, upx_exclude=[],
     name="Daimon",

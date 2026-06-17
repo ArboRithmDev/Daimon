@@ -19,13 +19,21 @@ def test_uses_console_script_when_present(monkeypatch):
     assert entry["env"] == {}
 
 
-def test_frozen_build_runs_itself_with_serve(monkeypatch):
-    # A frozen exe must register `<itself> serve` — never `-m` (which the frozen
-    # dispatcher ignores, landing in the tray instead of the server).
+def test_frozen_build_serves_via_console_sibling_on_windows(monkeypatch, tmp_path):
+    # A frozen exe registers `<server> serve`. On Windows the server must be the
+    # CONSOLE sibling daimon-mcp.exe (a GUI-subsystem exe won't load as an stdio
+    # MCP server for stricter clients); elsewhere the running binary serves.
     monkeypatch.setattr(invocation.sys, "frozen", True, raising=False)
-    monkeypatch.setattr(invocation.sys, "executable", r"D:\dist\Daimon\Daimon.exe")
-    entry = invocation.daimon_command()
-    assert entry["command"] == r"D:\dist\Daimon\Daimon.exe"
+    gui = tmp_path / "Daimon.exe"
+    gui.write_text("")
+    monkeypatch.setattr(invocation.sys, "executable", str(gui))
+    if sys.platform == "win32":
+        (tmp_path / "daimon-mcp.exe").write_text("")
+        entry = invocation.daimon_command()
+        assert entry["command"] == str(tmp_path / "daimon-mcp.exe")
+    else:
+        entry = invocation.daimon_command()
+        assert entry["command"] == str(gui)
     assert entry["args"] == ["serve"]
 
 

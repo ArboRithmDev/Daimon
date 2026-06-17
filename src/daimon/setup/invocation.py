@@ -36,11 +36,15 @@ def _bundled_windows() -> Path | None:
 
 def daimon_command() -> dict:
     """Resolve the command+args an MCP client runs to start `daimon serve`."""
-    # A frozen build IS the dispatcher — run it directly with `serve`. This is the
-    # currently-running exe (a dist/ test build or an installed one), so it works
-    # before installation too. `-m` would be ignored by the frozen exe and land
-    # in the tray branch (the same trap as the overlay spawn).
+    # A frozen build IS the dispatcher — run it with `serve`. On Windows the MCP
+    # server MUST be the CONSOLE sibling (daimon-mcp.exe): a GUI-subsystem exe
+    # (Daimon.exe) does not work as an stdio MCP server for stricter clients
+    # (Antigravity/Gemini won't load it). On macOS the single .app binary serves.
     if getattr(sys, "frozen", False):
+        if sys.platform == "win32":
+            mcp = Path(sys.executable).with_name("daimon-mcp.exe")
+            if mcp.exists():
+                return {"command": str(mcp), "args": ["serve"], "env": {}}
         return {"command": sys.executable, "args": ["serve"], "env": {}}
     if sys.platform == "win32":
         win = _bundled_windows()
