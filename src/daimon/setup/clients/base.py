@@ -26,6 +26,27 @@ _BLOCK_RE = re.compile(re.escape(_MARK_START) + r".*?" + re.escape(_MARK_END) + 
 
 
 @dataclass(frozen=True)
+class PermSpec:
+    """How to grant a client its *maximum* permission for Daimon, so the tools
+    run end-to-end with zero prompts (the red-line: a tool we ship must never be
+    blocked by client-side friction). Registering the server is not enough —
+    most clients also gate the launch command and/or each tool call.
+
+    All currently-supported clients use a JSON ``permissions.allow`` list:
+      - ``allow``         : static entries to add (e.g. ``mcp__daimon__*`` for
+                            Claude Code, ``mcp(daimon/*)`` for Antigravity).
+      - ``allow_command`` : also allow ``command(<launch exe>)`` (clients that
+                            gate spawning the MCP server, e.g. Antigravity).
+      - ``flags``         : extra top-level booleans to set (e.g. Antigravity's
+                            ``allowNonWorkspaceAccess`` — Daimon acts system-wide).
+    """
+    path: Path
+    allow: tuple[str, ...] = ()
+    allow_command: bool = False
+    flags: tuple[tuple[str, bool], ...] = ()
+
+
+@dataclass(frozen=True)
 class ClientAdapter:
     """One AI client: where its config lives and which format (json/toml) it uses."""
     name: str
@@ -33,6 +54,7 @@ class ClientAdapter:
     key: str = "mcpServers"
     detect_paths: tuple[Path, ...] = ()
     fmt: str = "json"   # json | toml-table | toml-array
+    perm: PermSpec | None = None   # how to grant max permission (None = nothing to do)
 
     def detect(self) -> bool:
         """True if any detect path exists, i.e. this client is installed."""
@@ -160,6 +182,72 @@ def uninstall(adapter: ClientAdapter, name: str, *, ts: str = "0") -> Result:
     servers.pop(name)
     _atomic_write(adapter.config_path, cfg, backup=True, ts=ts)
     return Result(adapter.name, "removed", str(adapter.config_path))
+
+
+def _perm_entries(spec: PermSpec, entry: dict) -> list[str]:
+    """The exact allow-list strings we own for this client (static + command)."""
+    wanted = list(spec.allow)
+    if spec.allow_command:
+        wanted.append(f"command({entry['command']})")
+    return wanted
+
+
+def grant_permissions(adapter: ClientAdapter, entry: dict, *, ts: str = "0") -> Result:
+    """Grant Daimon maximum permission in *adapter*'s client (auto-approve, no
+    prompts). Idempotent, backed-up, atomic — same guarantees as registration.
+    No-op (``skipped``) for clients with no ``perm`` mechanism wired yet."""
+    spec = adapter.perm
+    if spec is None:
+        return Result(adapter.name, "skipped", "no permission mechanism")
+    try:
+        cfg = read_config(spec.path)
+    except ValueError as e:
+        return Result(adapter.name, "error", f"malformed settings: {e}")
+
+    perms = cfg.setdefault("permissions", {})
+    if not isinstance(perms, dict):
+        return Result(adapter.name, "error", "'permissions' is not an object")
+    allow = perms.setdefault("allow", [])
+    if not isinstance(allow, list):
+        return Result(adapter.name, "error", "'permissions.allow' is not a list")
+
+    changed = False
+    for w in _perm_entries(spec, entry):
+        if w not in allow:
+            allow.append(w)
+            changed = True
+    for key, val in spec.flags:
+        if cfg.get(key) != val:
+            cfg[key] = val
+            changed = True
+    if not changed:
+        return Result(adapter.name, "already", "permissions already granted")
+    _atomic_write(spec.path, cfg, backup=True, ts=ts)
+    return Result(adapter.name, "granted", str(spec.path))
+
+
+def revoke_permissions(adapter: ClientAdapter, entry: dict, *, ts: str = "0") -> Result:
+    """Remove the allow-list entries Daimon added (reversible). Leaves top-level
+    flags (e.g. allowNonWorkspaceAccess) untouched — they may predate us and
+    govern other tools; unsetting them could break the user's setup."""
+    spec = adapter.perm
+    if spec is None or not spec.path.exists():
+        return Result(adapter.name, "absent", "no permissions to revoke")
+    try:
+        cfg = read_config(spec.path)
+    except ValueError:
+        return Result(adapter.name, "error", "malformed settings")
+    perms = cfg.get("permissions")
+    allow = perms.get("allow") if isinstance(perms, dict) else None
+    if not isinstance(allow, list):
+        return Result(adapter.name, "absent", "no permissions to revoke")
+    ours = set(_perm_entries(spec, entry))
+    kept = [a for a in allow if a not in ours]
+    if len(kept) == len(allow):
+        return Result(adapter.name, "absent", "no permissions to revoke")
+    perms["allow"] = kept
+    _atomic_write(spec.path, cfg, backup=True, ts=ts)
+    return Result(adapter.name, "removed", str(spec.path))
 
 
 def status(adapter: ClientAdapter, name: str) -> Result:

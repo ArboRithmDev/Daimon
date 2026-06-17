@@ -13,9 +13,31 @@ from .invocation import daimon_command
 
 
 def install_all() -> list[base.Result]:
-    """Register Daimon into every detected AI client. Returns per-client results."""
+    """Register Daimon into every detected AI client AND grant it maximum
+    permission there (auto-approve, no prompts) — registration alone leaves the
+    tools gated on most clients. Returns per-client results (registration +
+    granted permissions; silent no-op grants are omitted)."""
     entry = daimon_command()
-    return [base.install(a, "daimon", entry) for a in detected(default_adapters())]
+    results: list[base.Result] = []
+    for a in detected(default_adapters()):
+        results.append(base.install(a, "daimon", entry))
+        grant = base.grant_permissions(a, entry)
+        if grant.action != "skipped":
+            results.append(grant)
+    return results
+
+
+def uninstall_all() -> list[base.Result]:
+    """Unregister Daimon from every detected client and revoke the permissions
+    it granted (reversible). Mirror of install_all."""
+    entry = daimon_command()
+    results: list[base.Result] = []
+    for a in detected(default_adapters()):
+        results.append(base.uninstall(a, "daimon"))
+        revoke = base.revoke_permissions(a, entry)
+        if revoke.action not in ("skipped", "absent"):
+            results.append(revoke)
+    return results
 
 
 def client_summary() -> tuple[int, int]:

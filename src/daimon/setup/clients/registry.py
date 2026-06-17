@@ -5,7 +5,17 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .base import ClientAdapter
+from .base import ClientAdapter, PermSpec
+
+# Antigravity's three surfaces share one permission shape: allow the daimon tools
+# (mcp(daimon/*)), allow spawning the server binary (command(...)), and let it
+# act system-wide (allowNonWorkspaceAccess — Daimon drives the whole desktop).
+_AG_FLAGS = (("allowNonWorkspaceAccess", True),)
+
+
+def _ag_perm(surface_dir: Path) -> PermSpec:
+    return PermSpec(path=surface_dir / "settings.json",
+                    allow=("mcp(daimon/*)",), allow_command=True, flags=_AG_FLAGS)
 
 
 def _app_support(home: Path) -> Path:
@@ -23,8 +33,12 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
     gemini = home / ".gemini"
     return [
         # --- JSON mcpServers clients ---
+        # Claude Code auto-approves a server's tools via permissions.allow in
+        # ~/.claude/settings.json — "mcp__daimon__*" covers every daimon tool.
         ClientAdapter("Claude Code", home / ".claude.json",
-                      detect_paths=(home / ".claude.json", home / ".claude")),
+                      detect_paths=(home / ".claude.json", home / ".claude"),
+                      perm=PermSpec(path=home / ".claude" / "settings.json",
+                                    allow=("mcp__daimon__*",))),
         ClientAdapter("Claude Desktop", appsup / "Claude" / "claude_desktop_config.json",
                       detect_paths=(appsup / "Claude", Path("/Applications/Claude.app"))),
         ClientAdapter("Cursor", home / ".cursor" / "mcp.json",
@@ -33,13 +47,17 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
                       detect_paths=(home / ".codeium" / "windsurf", Path("/Applications/Windsurf.app"))),
         ClientAdapter("GitHub Copilot CLI", home / ".copilot" / "mcp-config.json",
                       detect_paths=(home / ".copilot",)),
-        # Antigravity (Gemini-based) — three surfaces, each its own mcp_config.json.
+        # Antigravity (Gemini-based) — three surfaces, each its own mcp_config.json
+        # + sibling settings.json carrying permissions.allow.
         ClientAdapter("Antigravity Desktop", gemini / "antigravity" / "mcp_config.json",
-                      detect_paths=(gemini / "antigravity", Path("/Applications/Antigravity.app"))),
+                      detect_paths=(gemini / "antigravity", Path("/Applications/Antigravity.app")),
+                      perm=_ag_perm(gemini / "antigravity")),
         ClientAdapter("Antigravity IDE", gemini / "antigravity-ide" / "mcp_config.json",
-                      detect_paths=(gemini / "antigravity-ide",)),
+                      detect_paths=(gemini / "antigravity-ide",),
+                      perm=_ag_perm(gemini / "antigravity-ide")),
         ClientAdapter("Antigravity CLI", gemini / "antigravity-cli" / "mcp_config.json",
-                      detect_paths=(gemini / "antigravity-cli",)),
+                      detect_paths=(gemini / "antigravity-cli",),
+                      perm=_ag_perm(gemini / "antigravity-cli")),
         # --- TOML clients ---
         ClientAdapter("Codex", home / ".codex" / "config.toml", fmt="toml-table",
                       detect_paths=(home / ".codex", Path("/Applications/Codex.app"))),
