@@ -2,8 +2,11 @@
 ; Build:  iscc /DMyAppVersion=0.0.3 build\windows\daimon.iss
 ; Produces dist\Daimon-<version>-setup.exe from the PyInstaller one-dir bundle.
 
+; Passed as /DMyAppVersion=<v> by build_windows.ps1 (reads pyproject). The
+; fallback below is only used when compiling the .iss directly from the Inno
+; Setup IDE — keep it in sync with pyproject [project].version.
 #ifndef MyAppVersion
-  #define MyAppVersion "0.0.0"
+  #define MyAppVersion "0.0.7"
 #endif
 
 #define MyAppName "Daimon"
