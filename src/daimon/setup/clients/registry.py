@@ -18,6 +18,19 @@ def _ag_perm(surface_dir: Path) -> PermSpec:
                     allow=("mcp(daimon/*)",), allow_command=True, flags=_AG_FLAGS)
 
 
+# Every Daimon MCP tool, by bare name — for clients that auto-approve by tool
+# name (Mistral Vibe). Keep in sync with the tools registered in server.py /
+# senses / motor (vue_*, touche_*, main_*, overlay_*).
+DAIMON_TOOLS = (
+    "vue_displays", "vue_snapshot", "touche_tree", "touche_probe",
+    "main_click", "main_type", "main_press", "main_navigate", "main_key",
+    "main_hover", "main_activate", "main_drag", "main_mouse_down",
+    "main_mouse_up", "main_key_down", "main_key_up",
+    "overlay_highlight", "overlay_spotlight", "overlay_cursor",
+    "overlay_banner", "overlay_clear",
+)
+
+
 def _app_support(home: Path) -> Path:
     """Per-OS roaming app-data dir where GUI clients keep their config."""
     if sys.platform == "win32":
@@ -45,8 +58,11 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
                       detect_paths=(home / ".cursor", Path("/Applications/Cursor.app"))),
         ClientAdapter("Windsurf", home / ".codeium" / "windsurf" / "mcp_config.json",
                       detect_paths=(home / ".codeium" / "windsurf", Path("/Applications/Windsurf.app"))),
+        # Copilot CLI carries the grant in the entry itself: "tools": ["*"]
+        # exposes every Daimon tool (matching the other servers it trusts).
         ClientAdapter("GitHub Copilot CLI", home / ".copilot" / "mcp-config.json",
-                      detect_paths=(home / ".copilot",)),
+                      detect_paths=(home / ".copilot",),
+                      entry_extra={"tools": ["*"]}),
         # Antigravity (Gemini-based) — three surfaces, each its own mcp_config.json
         # + sibling settings.json carrying permissions.allow.
         ClientAdapter("Antigravity Desktop", gemini / "antigravity" / "mcp_config.json",
@@ -61,8 +77,12 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
         # --- TOML clients ---
         ClientAdapter("Codex", home / ".codex" / "config.toml", fmt="toml-table",
                       detect_paths=(home / ".codex", Path("/Applications/Codex.app"))),
+        # Mistral Vibe auto-approves MCP tools by bare name in config.toml's
+        # [mcp.auto_approve].tools array (same file as the server block).
         ClientAdapter("Mistral Vibe", home / ".vibe" / "config.toml", fmt="toml-array",
-                      detect_paths=(home / ".vibe",)),
+                      detect_paths=(home / ".vibe",),
+                      perm=PermSpec(path=home / ".vibe" / "config.toml",
+                                    toml_tools=DAIMON_TOOLS)),
     ]
 
 

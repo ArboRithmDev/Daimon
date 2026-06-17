@@ -44,6 +44,10 @@ class PermSpec:
     allow: tuple[str, ...] = ()
     allow_command: bool = False
     flags: tuple[tuple[str, bool], ...] = ()
+    # Alternative mechanism (Mistral Vibe): auto-approve by bare tool name in a
+    # TOML ``[mcp.auto_approve]`` ``tools`` array. When set, the grant edits that
+    # array instead of a JSON permissions.allow list.
+    toml_tools: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,9 @@ class ClientAdapter:
     detect_paths: tuple[Path, ...] = ()
     fmt: str = "json"   # json | toml-table | toml-array
     perm: PermSpec | None = None   # how to grant max permission (None = nothing to do)
+    # Extra keys merged into the registered server entry — some clients carry the
+    # permission IN the entry (e.g. Copilot CLI's "tools": ["*"] exposes every tool).
+    entry_extra: dict = field(default_factory=dict)
 
     def detect(self) -> bool:
         """True if any detect path exists, i.e. this client is installed."""
@@ -161,9 +168,10 @@ def install(adapter: ClientAdapter, name: str, entry: dict, *, ts: str = "0") ->
     servers = cfg.setdefault(adapter.key, {})
     if not isinstance(servers, dict):
         return Result(adapter.name, "error", f"'{adapter.key}' is not an object")
-    if servers.get(name) == entry:
+    full = {**entry, **adapter.entry_extra} if adapter.entry_extra else entry
+    if servers.get(name) == full:
         return Result(adapter.name, "already", "daimon already registered")
-    servers[name] = entry
+    servers[name] = full
     _atomic_write(adapter.config_path, cfg, backup=True, ts=ts)
     return Result(adapter.name, "installed", str(adapter.config_path))
 
@@ -192,6 +200,37 @@ def _perm_entries(spec: PermSpec, entry: dict) -> list[str]:
     return wanted
 
 
+_AA_HEADER = "[mcp.auto_approve]"
+_AA_ARRAY_RE = re.compile(r"tools\s*=\s*\[(.*?)\]", re.DOTALL)
+
+
+def _grant_toml_auto_approve(adapter: ClientAdapter, spec: PermSpec, ts: str) -> Result:
+    """Add Daimon's tool names to a TOML ``[mcp.auto_approve].tools`` array,
+    rewriting the array whole (so comma/format stays valid). Idempotent."""
+    path = spec.path
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    def _array(names) -> str:
+        return "tools = [\n" + "".join(f'    "{n}",\n' for n in names) + "]"
+
+    if _AA_HEADER in text:
+        start = text.index(_AA_HEADER)
+        m = _AA_ARRAY_RE.search(text, start)
+        if m:
+            present = re.findall(r'"([^"]+)"', m.group(1))
+            missing = [t for t in spec.toml_tools if t not in present]
+            if not missing:
+                return Result(adapter.name, "already", "permissions already granted")
+            new = text[:m.start()] + _array(present + missing) + text[m.end():]
+            _write_text(path, new, ts=ts)
+            return Result(adapter.name, "granted", str(path))
+    # No section/array yet → append a fresh one.
+    block = _AA_HEADER + "\n" + _array(list(spec.toml_tools)) + "\n"
+    new = (text.rstrip() + "\n\n" if text.strip() else "") + block
+    _write_text(path, new, ts=ts)
+    return Result(adapter.name, "granted", str(path))
+
+
 def grant_permissions(adapter: ClientAdapter, entry: dict, *, ts: str = "0") -> Result:
     """Grant Daimon maximum permission in *adapter*'s client (auto-approve, no
     prompts). Idempotent, backed-up, atomic — same guarantees as registration.
@@ -199,6 +238,8 @@ def grant_permissions(adapter: ClientAdapter, entry: dict, *, ts: str = "0") -> 
     spec = adapter.perm
     if spec is None:
         return Result(adapter.name, "skipped", "no permission mechanism")
+    if spec.toml_tools:
+        return _grant_toml_auto_approve(adapter, spec, ts)
     try:
         cfg = read_config(spec.path)
     except ValueError as e:
@@ -233,6 +274,21 @@ def revoke_permissions(adapter: ClientAdapter, entry: dict, *, ts: str = "0") ->
     spec = adapter.perm
     if spec is None or not spec.path.exists():
         return Result(adapter.name, "absent", "no permissions to revoke")
+    if spec.toml_tools:
+        text = spec.path.read_text(encoding="utf-8")
+        if _AA_HEADER not in text:
+            return Result(adapter.name, "absent", "no permissions to revoke")
+        start = text.index(_AA_HEADER)
+        m = _AA_ARRAY_RE.search(text, start)
+        if not m:
+            return Result(adapter.name, "absent", "no permissions to revoke")
+        present = re.findall(r'"([^"]+)"', m.group(1))
+        kept = [n for n in present if n not in set(spec.toml_tools)]
+        if len(kept) == len(present):
+            return Result(adapter.name, "absent", "no permissions to revoke")
+        array = "tools = [\n" + "".join(f'    "{n}",\n' for n in kept) + "]"
+        _write_text(spec.path, text[:m.start()] + array + text[m.end():], ts=ts)
+        return Result(adapter.name, "removed", str(spec.path))
     try:
         cfg = read_config(spec.path)
     except ValueError:
