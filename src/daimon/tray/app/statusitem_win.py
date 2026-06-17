@@ -16,9 +16,13 @@ class WindowsTrayController:
         self._tray = None
         self._menu = None       # the persistent context menu, refreshed on open
         self._onboard = None
+        self._update_state = None   # menu_model.UpdateMenuState | None
+        self._update_info = None    # the resolved UpdateInfo to apply
+        self._update_bridge = None
+        self._update_timer = None
 
     def install(self, app) -> None:
-        from PySide6 import QtWidgets
+        from PySide6 import QtCore, QtWidgets
 
         self._app = app
         self._tray = QtWidgets.QSystemTrayIcon()
@@ -33,6 +37,23 @@ class WindowsTrayController:
         self._refresh()
         self._tray.setContextMenu(self._menu)
         self._tray.show()
+
+        # Auto-update: check shortly after start, then on the configured interval.
+        # The network check runs off the GUI thread; results marshal back via a
+        # queued signal (the bridge lives on the GUI thread).
+        class _Bridge(QtCore.QObject):
+            result = QtCore.Signal(object)
+        self._update_bridge = _Bridge()
+        self._update_bridge.result.connect(self._on_update_result)
+
+        from ...config import load_update_config
+        cfg = load_update_config()
+        if cfg.enabled:
+            QtCore.QTimer.singleShot(4000, self._start_update_check)
+            self._update_timer = QtCore.QTimer()
+            self._update_timer.setInterval(int(max(1.0, cfg.interval_hours) * 3600 * 1000))
+            self._update_timer.timeout.connect(self._start_update_check)
+            self._update_timer.start()
 
     def _icon(self):
         from pathlib import Path
@@ -60,13 +81,50 @@ class WindowsTrayController:
         from ..menu_model import build_menu
         from ..state import gather
         try:
-            items = build_menu(gather())
+            items = build_menu(gather(), self._update_state)
         except Exception:
             from ...applog import log_exception
             log_exception("tray/_refresh")
             return
         self._menu.clear()
         self._fill(self._menu, items)
+
+    # -- auto-update --
+    def _start_update_check(self) -> None:
+        import threading
+        from ..menu_model import UpdateMenuState
+        self._update_state = UpdateMenuState(checking=True)
+
+        def _work():
+            info = None
+            try:
+                from ...update import service
+                info = service.check_for_update()
+            except Exception:
+                from ...applog import log_exception
+                log_exception("update/check")
+            self._update_bridge.result.emit(info)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _on_update_result(self, info) -> None:
+        """GUI thread: store result, notify, and auto-apply if opted in."""
+        from ..menu_model import UpdateMenuState
+        self._update_info = info
+        self._update_state = UpdateMenuState(
+            available_version=info.version if info is not None else None)
+        if info is None:
+            return
+        try:
+            from ...config import load_update_config
+            if load_update_config().auto_apply:
+                self._route("apply_update")
+                return
+            if self._tray is not None:
+                self._tray.showMessage("Daimon", f"Update available: v{info.version}")
+        except Exception:
+            from ...applog import log_exception
+            log_exception("update/notify")
 
     def _fill(self, menu, items) -> None:
         for item in items:
@@ -130,6 +188,14 @@ class WindowsTrayController:
             self._open_folder("config")
         elif action_id == "open_logs":
             self._open_folder("logs")
+        elif action_id == "check_update":
+            self._start_update_check()
+        elif action_id == "apply_update":
+            if self._update_info is not None:
+                from ...update import service
+                service.apply_update(self._update_info)  # spawns the detached updater
+                if self._app is not None:
+                    self._app.quit()                     # release file locks for the replace
         elif action_id == "quit":
             if self._app is not None:
                 self._app.quit()

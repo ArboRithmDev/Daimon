@@ -1,0 +1,14 @@
+# Daimon auto-update.
+#
+# Copy to `update.yaml` in the user data dir (git-ignored), or leave this as-is
+# for the defaults. Daimon checks GitHub Releases for a newer build and, by
+# default, only NOTIFIES — it applies an update on your click, never silently.
+
+update:
+  enabled: true
+  # Where the release manifest (latest.json) lives. Default = the repo's latest
+  # GitHub release.
+  manifest_url: "https://github.com/ArboRithmDev/Daimon/releases/latest/download/latest.json"
+  interval_hours: 24      # how often the tray checks in the background
+  auto_apply: false       # true = apply automatically (opt-in); default notifies only
+  allow_prerelease: false # true = also offer beta/prerelease builds

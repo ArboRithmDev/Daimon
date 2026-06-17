@@ -26,12 +26,31 @@ class MenuItem:
     children: tuple = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class UpdateMenuState:
+    """Cached self-update status the tray injects into the menu — the network
+    check runs off the menu, not on every render."""
+
+    checking: bool = False
+    available_version: str | None = None   # set when a newer build is available
+
+
 def _dot(ok: bool) -> str:
     """Status glyph: filled when a permission is granted, hollow otherwise."""
     return "✅" if ok else "⚪"
 
 
-def build_menu(state: TrayState) -> list[MenuItem]:
+def _update_items(update: UpdateMenuState | None) -> list[MenuItem]:
+    if update is not None and update.checking:
+        return [MenuItem(kind="label", label="Checking for updates…", enabled=False)]
+    if update is not None and update.available_version:
+        return [MenuItem(kind="action",
+                         label=f"⬆ Update to v{update.available_version}",
+                         action_id="apply_update")]
+    return [MenuItem(kind="action", label="Check for updates", action_id="check_update")]
+
+
+def build_menu(state: TrayState, update: UpdateMenuState | None = None) -> list[MenuItem]:
     """Build the full tray menu from a state snapshot — pure, so it can be unit-tested."""
     ceiling_children = tuple(
         MenuItem(kind="radio", label=lvl.name, action_id=f"set_ceiling:{lvl.name}",
@@ -77,6 +96,8 @@ def build_menu(state: TrayState) -> list[MenuItem]:
         MenuItem(kind="action", label="Run setup…", action_id="run_setup"),
         MenuItem(kind="action", label="Open config folder", action_id="open_config"),
         MenuItem(kind="action", label="Open logs", action_id="open_logs"),
+        MenuItem(kind="separator"),
+        *_update_items(update),
         MenuItem(kind="separator"),
         MenuItem(kind="action", label="Quit Daimon", action_id="quit"),
     ]
