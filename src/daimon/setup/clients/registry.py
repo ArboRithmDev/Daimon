@@ -23,7 +23,13 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
                       detect_paths=(home / ".codeium" / "windsurf", Path("/Applications/Windsurf.app"))),
         ClientAdapter("GitHub Copilot CLI", home / ".copilot" / "mcp-config.json",
                       detect_paths=(home / ".copilot",)),
-        # Antigravity (Gemini-based) — three surfaces, each its own mcp_config.json.
+        # Antigravity (Gemini-based) — three surfaces, each its own mcp_config.json, plus a global one.
+        # The global config + settings.json are inherited by every AGY surface (R1 of the
+        # AGY deploy doctrine), so they're the primary server-declaration targets.
+        ClientAdapter("Antigravity Global", gemini / "config" / "mcp_config.json",
+                      detect_paths=(gemini / "config",)),
+        ClientAdapter("Antigravity Settings", gemini / "settings.json",
+                      detect_paths=(gemini,)),
         ClientAdapter("Antigravity Desktop", gemini / "antigravity" / "mcp_config.json",
                       detect_paths=(gemini / "antigravity", Path("/Applications/Antigravity.app"))),
         ClientAdapter("Antigravity IDE", gemini / "antigravity-ide" / "mcp_config.json",
@@ -35,6 +41,22 @@ def adapters_for_home(home: Path) -> list[ClientAdapter]:
                       detect_paths=(home / ".codex", Path("/Applications/Codex.app"))),
         ClientAdapter("Mistral Vibe", home / ".vibe" / "config.toml", fmt="toml-array",
                       detect_paths=(home / ".vibe",)),
+    ]
+
+
+def agy_permission_surfaces_for_home(home: Path) -> list[tuple[str, Path, Path]]:
+    """(label, settings_path, detect_dir) per AGY surface needing an explicit
+    per-tool permission whitelist (R2 of the AGY deploy doctrine).
+
+    Server declaration is global (inherited), but AGY's Security Manager enforces
+    tool access from each surface's *own* settings.json, so the whitelist is written
+    per surface — only for surfaces actually present on the machine.
+    """
+    g = home / ".gemini"
+    return [
+        ("Antigravity Desktop perms", g / "antigravity" / "settings.json", g / "antigravity"),
+        ("Antigravity IDE perms", g / "antigravity-ide" / "settings.json", g / "antigravity-ide"),
+        ("Antigravity CLI perms", g / "antigravity-cli" / "settings.json", g / "antigravity-cli"),
     ]
 
 

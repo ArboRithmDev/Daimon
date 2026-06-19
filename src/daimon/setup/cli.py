@@ -67,6 +67,16 @@ def cmd_install(adapters, client_filter=None) -> int:
     for a in targets:
         r = base.install(a, "daimon", entry, ts=ts)
         _print(f"  {a.name:16} {r.action}  {_DIM}{r.detail}{_END}")
+    # Antigravity needs each tool explicitly whitelisted per surface (real runs only;
+    # injected-adapter tests pass `adapters` and stay off the real ~/.gemini).
+    if adapters is None and client_filter is None:
+        from pathlib import Path
+        from . import deploy
+        agy = deploy.install_agy_permissions_all(ts=ts, workspace=Path.cwd())
+        for r in agy:
+            _print(f"  {r.client:24} {r.action}  {_DIM}{r.detail}{_END}")
+        if agy:
+            _print(f"{_DIM}  ↻ restart Antigravity (quit + relaunch) to load the tools.{_END}")
     return 0
 
 
@@ -80,6 +90,10 @@ def cmd_uninstall(adapters, client_filter=None) -> int:
     for a in targets:
         r = base.uninstall(a, "daimon", ts=ts)
         _print(f"  {a.name:16} {r.action}")
+    if adapters is None and client_filter is None:
+        from . import deploy
+        for r in deploy.uninstall_agy_permissions_all(ts=ts):
+            _print(f"  {r.client:24} {r.action}")
     return 0
 
 

@@ -128,6 +128,52 @@ def _status_toml(adapter: ClientAdapter) -> Result:
     return Result(adapter.name, "present" if present else "absent", str(path))
 
 
+def _gemini_root(path: Path) -> Path:
+    """The ``.gemini`` dir nearest above *path* — where the global enablement lives.
+
+    Robust to how deep the adapter's config sits (``.gemini/config/mcp_config.json``
+    vs ``.gemini/settings.json``); falls back to the legacy two-levels-up guess.
+    """
+    for parent in path.parents:
+        if parent.name == ".gemini":
+            return parent
+    return path.parent.parent
+
+
+def _enable_in_gemini(gemini_dir: Path, name: str) -> None:
+    enablement_path = gemini_dir / "mcp-server-enablement.json"
+    try:
+        if enablement_path.exists():
+            text = enablement_path.read_text(encoding="utf-8").strip()
+            data = json.loads(text) if text else {}
+        else:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        if data.get(name, {}).get("enabled") is not True:
+            data.setdefault(name, {})["enabled"] = True
+            tmp = enablement_path.with_name(f"{enablement_path.name}.tmp")
+            tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            os.replace(tmp, enablement_path)
+    except Exception:
+        pass
+
+
+def _disable_in_gemini(gemini_dir: Path, name: str) -> None:
+    enablement_path = gemini_dir / "mcp-server-enablement.json"
+    try:
+        if enablement_path.exists():
+            text = enablement_path.read_text(encoding="utf-8").strip()
+            data = json.loads(text) if text else {}
+            if isinstance(data, dict) and name in data:
+                data.pop(name)
+                tmp = enablement_path.with_name(f"{enablement_path.name}.tmp")
+                tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                os.replace(tmp, enablement_path)
+    except Exception:
+        pass
+
+
 def install(adapter: ClientAdapter, name: str, entry: dict, *, ts: str = "0") -> Result:
     """Register *entry* under *name*; idempotent, backed-up, atomic."""
     if adapter.fmt in ("toml-table", "toml-array"):
@@ -140,9 +186,13 @@ def install(adapter: ClientAdapter, name: str, entry: dict, *, ts: str = "0") ->
     if not isinstance(servers, dict):
         return Result(adapter.name, "error", f"'{adapter.key}' is not an object")
     if servers.get(name) == entry:
+        if adapter.name.startswith("Antigravity"):
+            _enable_in_gemini(_gemini_root(adapter.config_path), name)
         return Result(adapter.name, "already", "daimon already registered")
     servers[name] = entry
     _atomic_write(adapter.config_path, cfg, backup=True, ts=ts)
+    if adapter.name.startswith("Antigravity"):
+        _enable_in_gemini(_gemini_root(adapter.config_path), name)
     return Result(adapter.name, "installed", str(adapter.config_path))
 
 
@@ -159,6 +209,8 @@ def uninstall(adapter: ClientAdapter, name: str, *, ts: str = "0") -> Result:
         return Result(adapter.name, "absent", "daimon not registered")
     servers.pop(name)
     _atomic_write(adapter.config_path, cfg, backup=True, ts=ts)
+    if adapter.name.startswith("Antigravity"):
+        _disable_in_gemini(_gemini_root(adapter.config_path), name)
     return Result(adapter.name, "removed", str(adapter.config_path))
 
 
@@ -173,3 +225,92 @@ def status(adapter: ClientAdapter, name: str) -> Result:
     servers = cfg.get(adapter.key, {})
     present = isinstance(servers, dict) and name in servers
     return Result(adapter.name, "present" if present else "absent", str(adapter.config_path))
+
+
+# --- Antigravity per-surface tool permissions ----------------------------
+# Declaring + enabling a server is necessary but NOT sufficient for AGY: its
+# Security Manager rejects each tool call unless `mcp(server/<tool>)` is in the
+# surface's settings.json `permissions.allow`. Wildcards (`mcp(server/*)`) are
+# rejected at the resource-listing step, so every tool must be listed explicitly.
+def agy_tool_perms(server: str, tools) -> list[str]:
+    """The explicit per-tool allow entries for an AGY surface — never a wildcard."""
+    return [f"mcp({server}/{t})" for t in tools]
+
+
+def _is_safe_workspace(ws, home) -> bool:
+    """True if *ws* is a real project dir worth trusting (not the filesystem root or $HOME)."""
+    ws = Path(ws)
+    return ws.is_absolute() and ws != Path(ws.anchor) and ws != Path(home)
+
+
+def install_agy_permissions(label: str, path: Path, server: str, tools, *,
+                            workspace=None, ts: str = "0") -> Result:
+    """Whitelist each ``mcp(server/<tool>)`` in a surface's settings.json
+    ``permissions.allow`` (+ optionally trust *workspace*).
+
+    Idempotent, backed-up, atomic, reversible — never touches other servers'
+    permissions, other settings keys, or pre-existing trusted workspaces.
+    """
+    try:
+        cfg = read_config(path)
+    except ValueError as e:
+        return Result(label, "error", f"malformed config: {e}")
+    perms = cfg.setdefault("permissions", {})
+    if not isinstance(perms, dict):
+        return Result(label, "error", "'permissions' is not an object")
+    allow = perms.setdefault("allow", [])
+    if not isinstance(allow, list):
+        return Result(label, "error", "'permissions.allow' is not a list")
+
+    wanted = agy_tool_perms(server, tools)
+    existing = set(allow)
+    missing = [w for w in wanted if w not in existing]
+    changed = bool(missing)
+    allow.extend(missing)
+
+    if workspace is not None and _is_safe_workspace(workspace, Path.home()):
+        tw = cfg.setdefault("trustedWorkspaces", [])
+        if isinstance(tw, list):
+            ws = str(Path(workspace))
+            if ws not in tw:
+                tw.append(ws)
+                changed = True
+
+    if not changed:
+        return Result(label, "already", "daimon tools already whitelisted")
+    _atomic_write(path, cfg, backup=True, ts=ts)
+    return Result(label, "installed", str(path))
+
+
+def uninstall_agy_permissions(label: str, path: Path, server: str, *, ts: str = "0") -> Result:
+    """Remove every ``mcp(server/<tool>)`` entry from a surface's
+    ``permissions.allow`` (reversible). Leaves trustedWorkspaces alone — other
+    servers may rely on the trusted dir.
+    """
+    try:
+        cfg = read_config(path)
+    except ValueError as e:
+        return Result(label, "error", f"malformed config: {e}")
+    perms = cfg.get("permissions")
+    if not isinstance(perms, dict) or not isinstance(perms.get("allow"), list):
+        return Result(label, "absent", "daimon not whitelisted")
+    prefix = f"mcp({server}/"
+    allow = perms["allow"]
+    kept = [a for a in allow if not (isinstance(a, str) and a.startswith(prefix))]
+    if len(kept) == len(allow):
+        return Result(label, "absent", "daimon not whitelisted")
+    perms["allow"] = kept
+    _atomic_write(path, cfg, backup=True, ts=ts)
+    return Result(label, "removed", str(path))
+
+
+def status_agy_permissions(label: str, path: Path, server: str, tools) -> Result:
+    """Report whether every daimon tool is whitelisted in a surface's settings.json."""
+    try:
+        cfg = read_config(path)
+    except ValueError:
+        return Result(label, "error", "malformed config")
+    perms = cfg.get("permissions", {})
+    allow = perms.get("allow", []) if isinstance(perms, dict) else []
+    present = isinstance(allow, list) and set(agy_tool_perms(server, tools)) <= set(allow)
+    return Result(label, "present" if present else "absent", str(path))
