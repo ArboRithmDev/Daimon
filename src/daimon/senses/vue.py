@@ -25,7 +25,11 @@ from ..capture import screen
 from ..capture.coordspace import CoordSpace, coord_space_contract
 from ..exclusions import ExclusionFilter
 from .base import Sense
-from .calibration import coord_space_from_profile, profile_from_displays
+from .calibration import (
+    active_profile_brief,
+    coord_space_from_profile,
+    profile_from_displays,
+)
 from .find import locate, rank_matches
 
 
@@ -247,6 +251,24 @@ class Vue(Sense):
                     "Call vue_calibrate(name=...) to create one."
                 ),
             }
+
+        @mcp.tool(
+            name="vue_profile_brief",
+            description=(
+                "Boot brief for a DELEGATED sub-agent (AXE 5). An orchestrator hands "
+                "a small fast model only a profile name via `expected`; this confirms "
+                "that name is the one auto-matched to the live screen topology and "
+                "returns the addressable display indices, so the sub-agent drives the "
+                "UI mechanically with no geometric reasoning. Returns {matched, "
+                "active_profile, signature, expected_ok, displays:[{index, width, "
+                "height, is_main, origin_x, origin_y, dpi}]}. GO only if expected_ok "
+                "is True; otherwise the environment doesn't match the handed-down "
+                "profile — abort and report rather than drive blind."
+            ),
+        )
+        def vue_profile_brief(expected: str | None = None) -> dict:
+            displays = screen.list_displays()
+            return active_profile_brief(self._profiles, displays, expected=expected)
 
     def _redact(self, frame) -> object:
         """Apply the exclusion redaction chain to a captured frame's image.

@@ -167,6 +167,43 @@ def match_profile(profiles, displays) -> EnvironmentProfile | None:
     return None
 
 
+def active_profile_brief(store, displays, expected: str | None = None) -> dict:
+    """The flat, decision-free brief a delegated sub-agent boots from (AXE 5).
+
+    A big-model orchestrator hands a small-model sub-agent only a profile *name*.
+    That sub-agent must not reason about geometry; it only needs to confirm the
+    handed-down name is the one auto-matched to the live topology and learn which
+    display indices it may address. This builds exactly that, from the pure core:
+
+    - ``matched`` / ``active_profile`` / ``signature``: the profile auto-matched
+      to ``displays`` (by signature), or None when the environment is unknown;
+    - ``expected_ok``: True when ``expected`` is omitted OR equals the matched
+      profile name — the sub-agent's go/no-go gate (drive only if True);
+    - ``displays``: the addressable indices + their stored geometry, so the
+      sub-agent picks ``display=k`` for the Hands without any offset/scale math.
+
+    ``store`` only needs ``.match(displays)`` (real or Fake); ``displays`` is the
+    live topology, injected — this helper never touches the screen itself.
+    """
+    matched = store.match(displays)
+    if matched is None:
+        return {
+            "matched": False,
+            "active_profile": None,
+            "signature": environment_signature(displays),
+            "expected_ok": False,
+            "displays": [],
+        }
+    expected_ok = expected is None or expected == matched.name
+    return {
+        "matched": True,
+        "active_profile": matched.name,
+        "signature": matched.signature,
+        "expected_ok": expected_ok,
+        "displays": [d.to_dict() for d in matched.displays],
+    }
+
+
 def coord_space_from_profile(profile: EnvironmentProfile, display_index: int,
                              max_width: int | None = 720,
                              region: dict | None = None) -> CoordSpace:

@@ -144,6 +144,8 @@ Formule que le pilote a dû dériver par 3 clics ratés : `global_x = image_x ×
 
 **Dépendances** : AXE 1 + AXE 2 (+ AXE 3 pour apps sans UIA). **Effort** : faible (capitalise sur 1/2/3).
 
+**Livré** : recette d'orchestration `docs/delegation-haiku-via-profil.md` (contrat d'entrée profil+objectif → sortie texte, gabarit de prompt sous-agent, exemple WinDev, frontière de contexte) + helper `vue_profile_brief(expected)` (boot brief GO/NO-GO du sous-agent ; cœur pur `active_profile_brief`, tests `tests/test_profile_brief*.py`).
+
 ---
 
 ## AXE 6 — Antigravity (AGY) enablement `[PRIORITÉ BASSE — EN PAUSE]`
