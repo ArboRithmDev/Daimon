@@ -16,24 +16,46 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Display:
-    """An active display and its index in the active-display list."""
+    """An active display and its index in the active-display list.
+
+    `origin_x`/`origin_y` place the display's top-left in the global desktop
+    space (negative for a display left of / above the main one); `dpi` is the
+    effective dots-per-inch. Together they make image→global mapping deterministic.
+    """
 
     index: int
     display_id: int
     width: int
     height: int
     is_main: bool
+    origin_x: int = 0
+    origin_y: int = 0
+    dpi: int = 96
 
 
 @dataclass(frozen=True)
 class Frame:
-    """A captured screen frame plus the metadata a sense needs to describe it."""
+    """A captured screen frame plus the metadata a sense needs to describe it.
+
+    The coord-space fields make reprojection deterministic (see
+    `capture.coordspace`): `display_origin_*` is the source display's global
+    top-left, `physical_*` is the source (pre-downscale, pre-crop) display size,
+    `width`/`height` is the served image size, `image_scale` is the downscale
+    ratio (image_px / source_px), and `region` is the captured sub-region (or None).
+    """
 
     image: "object"  # PIL.Image.Image (typed loosely to avoid a hard import here)
     width: int
     height: int
     display_index: int
     frontmost_bundle_id: str | None
+    display_origin_x: int = 0
+    display_origin_y: int = 0
+    physical_width: int = 0
+    physical_height: int = 0
+    image_scale: float = 1.0
+    region: dict | None = None
+    dpi: int = 96
 
 
 def frontmost_bundle_id() -> str | None:
@@ -56,6 +78,7 @@ def list_displays() -> list[Display]:
     main_id = Quartz.CGMainDisplayID()
     out: list[Display] = []
     for i, did in enumerate(ids[:count]):
+        ox, oy = _display_origin(did)
         out.append(
             Display(
                 index=i,
@@ -63,9 +86,40 @@ def list_displays() -> list[Display]:
                 width=int(Quartz.CGDisplayPixelsWide(did)),
                 height=int(Quartz.CGDisplayPixelsHigh(did)),
                 is_main=(did == main_id),
+                origin_x=ox,
+                origin_y=oy,
+                dpi=_display_dpi(did),
             )
         )
     return out
+
+
+def _display_origin(did) -> tuple[int, int]:
+    """Global top-left of a display, via CGDisplayBounds(did).origin."""
+    import Quartz
+
+    bounds = Quartz.CGDisplayBounds(did)
+    return int(bounds.origin.x), int(bounds.origin.y)
+
+
+def _display_dpi(did) -> int:
+    """Effective DPI from the display mode's pixel width over its physical size.
+
+    Quartz reports physical size in millimetres; dpi = pixels / (mm / 25.4).
+    Falls back to the 96 baseline when the physical size is unknown (0).
+    """
+    import Quartz
+
+    try:
+        mode = Quartz.CGDisplayCopyDisplayMode(did)
+        px_w = Quartz.CGDisplayModeGetPixelWidth(mode) if mode else 0
+        size_mm = Quartz.CGDisplayScreenSize(did)  # CGSize in millimetres
+        width_mm = float(size_mm.width)
+        if px_w and width_mm > 0:
+            return int(round(px_w / (width_mm / 25.4)))
+    except Exception:
+        pass
+    return 96
 
 
 def _cgimage_to_pil(image_ref):
@@ -122,10 +176,12 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
         )
 
     img = _cgimage_to_pil(image_ref)
+    physical_width, physical_height = img.width, img.height
     img = crop_region(img, region)
+    image_scale = 1.0
     if max_width and img.width > max_width:
-        ratio = max_width / img.width
-        img = img.resize((max_width, int(img.height * ratio)))
+        image_scale = max_width / img.width
+        img = img.resize((max_width, int(img.height * image_scale)))
 
     return Frame(
         image=img,
@@ -133,6 +189,13 @@ def capture_display(display_index: int = 0, max_width: int | None = 720,
         height=img.height,
         display_index=display_index,
         frontmost_bundle_id=frontmost_bundle_id(),
+        display_origin_x=display.origin_x,
+        display_origin_y=display.origin_y,
+        physical_width=physical_width,
+        physical_height=physical_height,
+        image_scale=image_scale,
+        region=region,
+        dpi=display.dpi,
     )
 
 

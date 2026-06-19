@@ -59,6 +59,37 @@ def _register_overlay(mcp) -> None:
         return {"ok": True}
 
 
+def _resolve_point(x, y, display, space, max_width=720, region=None):
+    """Map (x, y) to a GLOBAL desktop pixel for a positional Hand.
+
+    `space="global"` (default) passes through — back-compat, the client supplied
+    global coords directly. `space="image"` treats (x, y) as pixels in a
+    vue_snapshot of `display` (taken at `max_width`/`region`) and applies that
+    display's origin + the snapshot's downscale internally, so the client never
+    handles negative global coords or the downscale factor itself. `display=None`
+    with image space is an error (image coords are meaningless without a display).
+    """
+    if x is None or y is None or space != "image":
+        return x, y
+    if display is None:
+        raise ValueError("space='image' requires a display index")
+    from .capture import screen
+    from .capture.coordspace import CoordSpace
+    displays = screen.list_displays()
+    if display < 0 or display >= len(displays):
+        raise IndexError(f"display {display} out of range (0..{len(displays) - 1})")
+    d = displays[display]
+    source_w = int(region["width"]) if region else d.width
+    image_scale = max_width / source_w if (max_width and source_w > max_width) else 1.0
+    cs = CoordSpace(
+        display_origin_x=d.origin_x, display_origin_y=d.origin_y,
+        image_scale=image_scale,
+        region_x=int(region["x"]) if region else 0,
+        region_y=int(region["y"]) if region else 0,
+    )
+    return cs.to_global(x, y)
+
+
 def _register_motor(mcp) -> None:
     """Wire the motor (hands) action tools onto the server."""
     organ = build_organ()
@@ -71,13 +102,19 @@ def _register_motor(mcp) -> None:
         description=(
             "Click an element/coordinate. button=left|right|middle, count=1|2 "
             "(double-click), modifiers=[cmd,shift,opt,ctrl]. Provide role/label "
-            "(from Touché) so Daimon can verify reversibility. Refused above the ceiling."
+            "(from Touché) so Daimon can verify reversibility. Refused above the "
+            "ceiling. space='image' with display=k passes snapshot-local pixels "
+            "(set max_width/region to match that snapshot) and Daimon resolves the "
+            "global pixel itself — no manual offset/scale, negative displays handled."
         ),
     )
     def main_click(x: int, y: int, intent: str, reversible: bool = True,
                    button: str = "left", count: int = 1, modifiers: list[str] | None = None,
-                   role: str = "", label: str = "") -> dict:
+                   role: str = "", label: str = "", display: int | None = None,
+                   space: str = "global", max_width: int = 720,
+                   region: dict | None = None) -> dict:
         """Click an element or coordinate."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="click", level=level_for("main_click"),
             target=_target(x, y, role or None, label or None),
@@ -108,8 +145,11 @@ def _register_motor(mcp) -> None:
         ),
     )
     def main_press(x: int, y: int, intent: str, reversible: bool = False,
-                   role: str = "", label: str = "") -> dict:
+                   role: str = "", label: str = "", display: int | None = None,
+                   space: str = "global", max_width: int = 720,
+                   region: dict | None = None) -> dict:
         """Activate a button via the Accessibility API."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="press", level=level_for("main_press"),
             target=_target(x, y, role or None, label or None),
@@ -145,9 +185,14 @@ def _register_motor(mcp) -> None:
             params={"key": key, "modifiers": mods, "count": count, "keystr": keystr},
         ))
 
-    @mcp.tool(name="main_hover", description="Move the pointer to (x,y) without clicking (reveal tooltips/menus).")
-    def main_hover(x: int, y: int, intent: str) -> dict:
+    @mcp.tool(name="main_hover", description=(
+        "Move the pointer to (x,y) without clicking (reveal tooltips/menus). "
+        "space='image' + display=k resolves snapshot-local pixels to global."))
+    def main_hover(x: int, y: int, intent: str, display: int | None = None,
+                   space: str = "global", max_width: int = 720,
+                   region: dict | None = None) -> dict:
         """Move the pointer without clicking."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="hover", level=level_for("main_hover"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
@@ -164,8 +209,12 @@ def _register_motor(mcp) -> None:
         "Drag from (from_x,from_y) to (to_x,to_y). The drop destination is "
         "classified for reversibility (e.g. dropping on Trash gates)."))
     def main_drag(from_x: int, from_y: int, to_x: int, to_y: int, intent: str,
-                  button: str = "left", reversible: bool = True) -> dict:
+                  button: str = "left", reversible: bool = True,
+                  display: int | None = None, space: str = "global",
+                  max_width: int = 720, region: dict | None = None) -> dict:
         """Drag from one point to another."""
+        from_x, from_y = _resolve_point(from_x, from_y, display, space, max_width, region)
+        to_x, to_y = _resolve_point(to_x, to_y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="drag", level=level_for("main_drag"), target=Target(),
             declaration=Declaration(reversible=reversible, intent=intent),
@@ -176,15 +225,21 @@ def _register_motor(mcp) -> None:
         "Low-level: press and hold the left mouse button at (x,y). Advanced "
         "primitive — only runs at L4 (full autonomy). Auto-released by a watchdog "
         "if never followed by main_mouse_up."))
-    def main_mouse_down(x: int, y: int, intent: str) -> dict:
+    def main_mouse_down(x: int, y: int, intent: str, display: int | None = None,
+                        space: str = "global", max_width: int = 720,
+                        region: dict | None = None) -> dict:
         """Press and hold the mouse button (L4 primitive)."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="mouse_down", level=level_for("main_mouse_down"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
 
     @mcp.tool(name="main_mouse_up", description="Low-level: release the held left mouse button at (x,y).")
-    def main_mouse_up(x: int, y: int, intent: str) -> dict:
+    def main_mouse_up(x: int, y: int, intent: str, display: int | None = None,
+                      space: str = "global", max_width: int = 720,
+                      region: dict | None = None) -> dict:
         """Release the held mouse button."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
         return organ.act(MotorAction(
             name="mouse_up", level=level_for("main_mouse_up"), target=_target(x, y, None, None),
             declaration=Declaration(reversible=True, intent=intent), params={"x": x, "y": y}))
