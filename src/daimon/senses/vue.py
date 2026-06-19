@@ -23,13 +23,28 @@ from mcp.types import TextContent
 
 from ..capture import screen
 from ..capture.coordspace import CoordSpace, coord_space_contract
+from ..exclusions import ExclusionFilter
 from .base import Sense
+from .calibration import coord_space_from_profile, profile_from_displays
 
 
 class Vue(Sense):
-    """Read-only sight sense: serves screen pixels, gated and redacted first."""
+    """Read-only sight sense: serves screen pixels, gated and redacted first.
+
+    Holds a calibration profile store (AXE 2): the active environment's topology
+    can be captured once under a named profile and auto-matched at boot, so coord
+    resolution reads per-display offset/scale from the saved profile instead of
+    re-probing the screen on every call.
+    """
 
     name = "vue"
+
+    def __init__(self, exclusions: ExclusionFilter, profile_store=None) -> None:
+        super().__init__(exclusions)
+        if profile_store is None:
+            from .calibration_store import ProfileStore
+            profile_store = ProfileStore()
+        self._profiles = profile_store
 
     def register(self, mcp) -> None:
         """Expose the display-list and snapshot tools on the FastMCP server."""
@@ -95,14 +110,18 @@ class Vue(Sense):
                 "global desktop pixels, and inverse. Pass image_x/image_y to get "
                 "{global_x, global_y}; pass global_x/global_y for {image_x, image_y}. "
                 "`max_width`/`region` must match the snapshot they came from. "
+                "`source` selects the geometry: 'probe' (default, live displays) "
+                "or 'profile' (the auto-matched calibration profile; falls back to "
+                "probe if no profile matches). "
                 "Use this instead of computing offsets/scale yourself."
             ),
         )
         def vue_resolve(display: int = 0, max_width: int = 720,
                         region: dict | None = None,
                         image_x: float | None = None, image_y: float | None = None,
-                        global_x: float | None = None, global_y: float | None = None) -> dict:
-            cs = self._coord_space(display, max_width, region)
+                        global_x: float | None = None, global_y: float | None = None,
+                        source: str = "probe") -> dict:
+            cs = self._coord_space(display, max_width, region, source=source)
             if image_x is not None and image_y is not None:
                 gx, gy = cs.to_global(image_x, image_y)
                 return {"global_x": gx, "global_y": gy}
@@ -110,6 +129,65 @@ class Vue(Sense):
                 ix, iy = cs.to_image(global_x, global_y)
                 return {"image_x": ix, "image_y": iy}
             raise ValueError("vue_resolve needs either image_x/image_y or global_x/global_y")
+
+        @mcp.tool(
+            name="vue_calibrate",
+            description=(
+                "Capture the full screen topology (per-display origin, size, dpi, "
+                "arrangement) and persist it under a named calibration profile "
+                "(e.g. 'bureau-3-ecrans', 'portable-seul', 'teletravail-ultralarge'). "
+                "Recapturing the same name replaces it (idempotent). The saved "
+                "profile is auto-matched at boot by a deterministic signature, so "
+                "coord resolution is read from it instead of being re-probed."
+            ),
+        )
+        def vue_calibrate(name: str) -> dict:
+            if not name or not name.strip():
+                raise ValueError("vue_calibrate needs a non-empty profile name")
+            name = name.strip()
+            displays = screen.list_displays()
+            profile = profile_from_displays(name, displays)
+            self._profiles.save(profile)
+            return {
+                "saved": True,
+                "name": name,
+                "signature": profile.signature,
+                "display_count": len(profile.displays),
+                "displays": [d.to_dict() for d in profile.displays],
+            }
+
+        @mcp.tool(
+            name="vue_profile",
+            description=(
+                "Report the calibration profile auto-matched to the current screen "
+                "topology (by signature). If the environment is unknown, signals it "
+                "and proposes calibrating one with vue_calibrate. Lists the known "
+                "profile names either way."
+            ),
+        )
+        def vue_profile() -> dict:
+            displays = screen.list_displays()
+            matched = self._profiles.match(displays)
+            known = [p.name for p in self._profiles.load_all()]
+            if matched is not None:
+                return {
+                    "matched": True,
+                    "active_profile": matched.name,
+                    "signature": matched.signature,
+                    "display_count": len(matched.displays),
+                    "known_profiles": known,
+                }
+            from .calibration import environment_signature
+            return {
+                "matched": False,
+                "active_profile": None,
+                "signature": environment_signature(displays),
+                "known_profiles": known,
+                "hint": (
+                    "Unknown environment — no saved profile matches this topology. "
+                    "Call vue_calibrate(name=...) to create one."
+                ),
+            }
 
     def _redact(self, frame) -> object:
         """Apply the exclusion redaction chain to a captured frame's image.
@@ -127,13 +205,23 @@ class Vue(Sense):
         return image
 
     def _coord_space(self, display: int, max_width: int,
-                     region: dict | None) -> CoordSpace:
+                     region: dict | None, source: str = "probe") -> CoordSpace:
         """Build the reprojection coord-space for a display+capture params, no capture.
 
         Derives the same offset/scale a snapshot would, from display geometry:
         the captured source width is the region width (if any) else the display
         width; the downscale ratio is max_width/source_width when it exceeds it.
+
+        With `source="profile"` the geometry is read from the auto-matched
+        calibration profile (AXE 2) rather than a live probe — falling back to
+        probing when no profile matches the current environment.
         """
+        if source == "profile":
+            displays = screen.list_displays()
+            matched = self._profiles.match(displays)
+            if matched is not None:
+                return coord_space_from_profile(matched, display, max_width, region)
+            # no matching profile: fall through to live probing
         displays = screen.list_displays()
         if display < 0 or display >= len(displays):
             raise IndexError(
