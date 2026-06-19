@@ -14,11 +14,15 @@ from typing import Callable
 
 from .actuator import Actuator
 from .audit import AppendOnlyLedger
+from .focus import FocusProbe, window_is_frontmost
 from .gate import HumanGate
 from .guard import PolicyGuard
 from .probe import Prober
-from .types import MotorAction, Verdict
+from .types import Declaration, MotorAction, Target, Verdict
 from ..overlay.presenter import NullPresenter
+
+# Positional gestures whose effect depends on the target window being frontmost.
+_FOCUS_SENSITIVE = {"click", "press", "drag", "mouse_down", "type", "key"}
 
 
 class MotorOrgan:
@@ -33,6 +37,7 @@ class MotorOrgan:
         clock: Callable[[], str],
         prober: Prober,
         presenter=None,
+        focus_probe: FocusProbe | None = None,
     ) -> None:
         self._guard = guard
         self._gate = gate
@@ -41,6 +46,7 @@ class MotorOrgan:
         self._clock = clock
         self._prober = prober
         self._presenter = presenter or NullPresenter()
+        self._focus = focus_probe
 
     def _record(self, action: MotorAction, phase: str, extra: dict) -> bool:
         try:
@@ -94,7 +100,50 @@ class MotorOrgan:
             self._present("present_refused", action, "no-log=no-act")
             return {"status": "refused", "reason": "no-log=no-act (audit write failed)"}
 
+        focus = self._handle_focus(action)
+
         result = self._actuator.execute(action)
         self._record(action, "executed", {"result": result})
         self._present("present_executed", action, result)
-        return {"status": "done", "result": result}
+        return {"status": "done", "result": result, **focus}
+
+    def _handle_focus(self, action: MotorAction) -> dict:
+        """Make focus observable before a positional gesture (F3).
+
+        When the action declares a target `window`, compare it against the
+        frontmost app. If the window isn't frontmost: with `ensure_focus`,
+        activate it first (re-checking the effect); otherwise attach an explicit
+        warning so a no-effect gesture never reads as success. No focus probe,
+        or no declared window, leaves behaviour unchanged.
+        """
+        if self._focus is None or action.name not in _FOCUS_SENSITIVE:
+            return {}
+        window = action.params.get("window")
+        if not window:
+            return {}
+        if window_is_frontmost(self._focus.frontmost(), window):
+            return {}
+        if not action.params.get("ensure_focus"):
+            return {"focus_warning": True,
+                    "focus_detail": "target window is not frontmost; the gesture may have no effect"}
+        # ensure_focus: bring the target window forward, then re-check.
+        self._activate_window(window)
+        if window_is_frontmost(self._focus.frontmost(), window):
+            return {"focused": True}
+        return {"focused": True, "focus_warning": True,
+                "focus_detail": "activated the target window but it is still not frontmost"}
+
+    def _activate_window(self, window: dict) -> None:
+        """Issue an internal activate gesture for `window` (NONDESTRUCTIVE)."""
+        from .actions import level_for
+        params = {k: v for k, v in window.items() if v is not None}
+        activate = MotorAction(
+            name="activate", level=level_for("main_activate"), target=Target(),
+            declaration=Declaration(reversible=True, intent="auto-focus target window"),
+            params=params,
+        )
+        self._actuator.execute(activate)
+        self._record(activate, "executed", {"result": {"auto_focus": True}})
+        note = getattr(self._focus, "note_activated", None)
+        if note is not None:
+            note(window)

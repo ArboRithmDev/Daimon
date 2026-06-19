@@ -97,6 +97,14 @@ def _register_motor(mcp) -> None:
     def _target(x, y, role, label):
         return Target(role=role, label=label, x=x, y=y)
 
+    def _attach_focus(params, bundle, title, pid, ensure_focus):
+        """Add the target-window descriptor + ensure_focus flag for F3, if given."""
+        window = {k: v for k, v in (("bundle", bundle), ("title", title), ("pid", pid)) if v}
+        if window:
+            params["window"] = window
+            if ensure_focus:
+                params["ensure_focus"] = True
+
     @mcp.tool(
         name="main_click",
         description=(
@@ -105,22 +113,29 @@ def _register_motor(mcp) -> None:
             "(from Touché) so Daimon can verify reversibility. Refused above the "
             "ceiling. space='image' with display=k passes snapshot-local pixels "
             "(set max_width/region to match that snapshot) and Daimon resolves the "
-            "global pixel itself — no manual offset/scale, negative displays handled."
+            "global pixel itself — no manual offset/scale, negative displays handled. "
+            "Pass window={bundle|title|pid} so Daimon checks the target is frontmost "
+            "(a click on a background window is a silent no-op); ensure_focus=True "
+            "activates it first instead of just warning."
         ),
     )
     def main_click(x: int, y: int, intent: str, reversible: bool = True,
                    button: str = "left", count: int = 1, modifiers: list[str] | None = None,
                    role: str = "", label: str = "", display: int | None = None,
                    space: str = "global", max_width: int = 720,
-                   region: dict | None = None) -> dict:
+                   region: dict | None = None, window_bundle: str = "",
+                   window_title: str = "", window_pid: int = 0,
+                   ensure_focus: bool = False) -> dict:
         """Click an element or coordinate."""
         x, y = _resolve_point(x, y, display, space, max_width, region)
+        params = {"x": x, "y": y, "button": button, "count": count,
+                  "modifiers": modifiers or []}
+        _attach_focus(params, window_bundle, window_title, window_pid, ensure_focus)
         return organ.act(MotorAction(
             name="click", level=level_for("main_click"),
             target=_target(x, y, role or None, label or None),
             declaration=Declaration(reversible=reversible, intent=intent),
-            params={"x": x, "y": y, "button": button, "count": count,
-                    "modifiers": modifiers or []},
+            params=params,
         ))
 
     @mcp.tool(
@@ -147,27 +162,44 @@ def _register_motor(mcp) -> None:
     def main_press(x: int, y: int, intent: str, reversible: bool = False,
                    role: str = "", label: str = "", display: int | None = None,
                    space: str = "global", max_width: int = 720,
-                   region: dict | None = None) -> dict:
+                   region: dict | None = None, window_bundle: str = "",
+                   window_title: str = "", window_pid: int = 0,
+                   ensure_focus: bool = False) -> dict:
         """Activate a button via the Accessibility API."""
         x, y = _resolve_point(x, y, display, space, max_width, region)
+        params = {"x": x, "y": y}
+        _attach_focus(params, window_bundle, window_title, window_pid, ensure_focus)
         return organ.act(MotorAction(
             name="press", level=level_for("main_press"),
             target=_target(x, y, role or None, label or None),
             declaration=Declaration(reversible=reversible, intent=intent),
-            params={"x": x, "y": y},
+            params=params,
         ))
 
     @mcp.tool(
         name="main_navigate",
-        description="Non-destructive navigation: scroll by scroll_y pixels at the focused view.",
+        description=(
+            "Non-destructive scroll by scroll_y pixels. Give an explicit target "
+            "view with (x, y) — Daimon moves the pointer there first so the scroll "
+            "lands on the view you mean, not 'the focused view' (the last-touched "
+            "element, often the wrong pane). x/y accept space='image' + display=k "
+            "like the other Hands. Omit x/y to scroll wherever the pointer is."
+        ),
     )
-    def main_navigate(intent: str, scroll_y: int = 0) -> dict:
-        """Scroll the focused view (non-destructive)."""
+    def main_navigate(intent: str, scroll_y: int = 0, x: int | None = None,
+                      y: int | None = None, display: int | None = None,
+                      space: str = "global", max_width: int = 720,
+                      region: dict | None = None) -> dict:
+        """Scroll a targeted view (non-destructive)."""
+        x, y = _resolve_point(x, y, display, space, max_width, region)
+        params = {"scroll_y": scroll_y}
+        if x is not None and y is not None:
+            params["x"], params["y"] = x, y
         return organ.act(MotorAction(
             name="navigate", level=level_for("main_navigate"),
-            target=Target(),
+            target=Target(x=x, y=y),
             declaration=Declaration(reversible=True, intent=intent),
-            params={"scroll_y": scroll_y},
+            params=params,
         ))
 
     @mcp.tool(name="main_key", description=(
@@ -211,15 +243,19 @@ def _register_motor(mcp) -> None:
     def main_drag(from_x: int, from_y: int, to_x: int, to_y: int, intent: str,
                   button: str = "left", reversible: bool = True,
                   display: int | None = None, space: str = "global",
-                  max_width: int = 720, region: dict | None = None) -> dict:
+                  max_width: int = 720, region: dict | None = None,
+                  window_bundle: str = "", window_title: str = "",
+                  window_pid: int = 0, ensure_focus: bool = False) -> dict:
         """Drag from one point to another."""
         from_x, from_y = _resolve_point(from_x, from_y, display, space, max_width, region)
         to_x, to_y = _resolve_point(to_x, to_y, display, space, max_width, region)
+        params = {"from_x": from_x, "from_y": from_y, "to_x": to_x, "to_y": to_y,
+                  "button": button}
+        _attach_focus(params, window_bundle, window_title, window_pid, ensure_focus)
         return organ.act(MotorAction(
             name="drag", level=level_for("main_drag"), target=Target(),
             declaration=Declaration(reversible=reversible, intent=intent),
-            params={"from_x": from_x, "from_y": from_y, "to_x": to_x, "to_y": to_y,
-                    "button": button}))
+            params=params))
 
     @mcp.tool(name="main_mouse_down", description=(
         "Low-level: press and hold the left mouse button at (x,y). Advanced "

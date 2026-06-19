@@ -159,6 +159,14 @@ class MacOSActuator:
     def _navigate(self, action: MotorAction) -> None:
         import Quartz
 
+        # F4: scroll the *intended* view, not 'the focused view'. When an explicit
+        # point is given, move the pointer over it first so the wheel event is
+        # routed to the view under (x, y) rather than the last-touched element.
+        x = action.params.get("x"); y = action.params.get("y")
+        if x is not None and y is not None:
+            move = Quartz.CGEventCreateMouseEvent(
+                None, Quartz.kCGEventMouseMoved, (x, y), 0)
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, move)
         dy = int(action.params.get("scroll_y", 0))
         if dy:
             ev = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitPixel, 1, dy)

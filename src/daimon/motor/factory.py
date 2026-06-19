@@ -15,6 +15,7 @@ from ..overlay.presenter import NullPresenter, OverlayPresenter
 from .actuator import MacOSActuator
 from .audit import AppendOnlyLedger
 from .consent import ConsentManager
+from .focus import MacOSFocusProbe
 from .gate import MacOSGate
 from .guard import PolicyGuard
 from .organ import MotorOrgan
@@ -63,4 +64,5 @@ def build_organ() -> MotorOrgan:
         clock=_now,
         prober=MacOSProber(),
         presenter=presenter,
+        focus_probe=MacOSFocusProbe(),
     )
