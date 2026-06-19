@@ -10,6 +10,7 @@ dependencies = [
     "mcp>=1.2.0",          # Model Context Protocol server SDK (FastMCP)
     "pyobjc-framework-Quartz>=10.0",        # screen capture + display geometry
     "pyobjc-framework-ApplicationServices>=10.0",  # Accessibility API (Touché)
+    "pyobjc-framework-Vision>=10.0",        # on-device OCR for vue_find (AXE 3 locator)
     "Pillow>=10.0",        # image encode/downscale for Vue snapshots
     "PyYAML>=6.0",         # exclusion-zone config
 ]

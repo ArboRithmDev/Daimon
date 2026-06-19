@@ -26,6 +26,7 @@ from ..capture.coordspace import CoordSpace, coord_space_contract
 from ..exclusions import ExclusionFilter
 from .base import Sense
 from .calibration import coord_space_from_profile, profile_from_displays
+from .find import locate, rank_matches
 
 
 class Vue(Sense):
@@ -39,12 +40,20 @@ class Vue(Sense):
 
     name = "vue"
 
-    def __init__(self, exclusions: ExclusionFilter, profile_store=None) -> None:
+    def __init__(self, exclusions: ExclusionFilter, profile_store=None,
+                 ocr=None) -> None:
         super().__init__(exclusions)
         if profile_store is None:
             from .calibration_store import ProfileStore
             profile_store = ProfileStore()
         self._profiles = profile_store
+        # OCR backend for vue_find (AXE 3) is INJECTED: real Apple Vision on
+        # macOS, a parity scaffold on Windows, a Fake in tests. Resolved lazily
+        # so importing Vue never pulls the OCR framework.
+        if ocr is None:
+            from .find_ocr import default_ocr
+            ocr = default_ocr()
+        self._ocr = ocr
 
     def register(self, mcp) -> None:
         """Expose the display-list and snapshot tools on the FastMCP server."""
@@ -129,6 +138,56 @@ class Vue(Sense):
                 ix, iy = cs.to_image(global_x, global_y)
                 return {"image_x": ix, "image_y": iy}
             raise ValueError("vue_resolve needs either image_x/image_y or global_x/global_y")
+
+        @mcp.tool(
+            name="vue_find",
+            description=(
+                "Vue-only fallback: locate a VISIBLE text label on `display` by OCR "
+                "and return CLICKABLE global coords (already reprojected via the "
+                "coord-space — no manual offset/scale, negative displays handled). "
+                "Use this when touche_tree/touche_probe go mute (WinDev, old Win32, "
+                "custom-drawn, Electron: summary 'None'/generic PaneControl) so there "
+                "is no accessibility tree to click. Returns {found, text, score, "
+                "image_x/y, global_x/y, candidates}. Feed global_x/global_y straight "
+                "to main_click (default space='global'). `max_width`/`region` must "
+                "match the snapshot geometry you intend to act in. This is a LOCATOR "
+                "(returns a position), not an interpreter: localisation != "
+                "interpretation — a scoped, on-device / no-network exception to "
+                "Daimon doing no vision. Daimon still does not read the screen FOR you."
+            ),
+        )
+        def vue_find(text: str, display: int = 0, max_width: int = 720,
+                     region: dict | None = None, min_score: float = 0.6,
+                     source: str = "probe") -> dict:
+            if not text or not text.strip():
+                raise ValueError("vue_find needs a non-empty text to locate")
+            frame = screen.capture_display(
+                display_index=display, max_width=max_width, region=region)
+
+            gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
+            if gate.refused:
+                raise PermissionError(f"Vue refused: {gate.reason}")
+
+            image = self._redact(frame)
+            words = self._ocr.recognize(image)
+            cs = self._coord_space(display, max_width, region, source=source)
+
+            hit = locate(words, text, cs, min_score=min_score)
+            if hit is not None:
+                return {"found": True, "candidates": [], **hit}
+            # Miss: surface what WAS on screen (best-effort, low threshold) so the
+            # pilot can retry with the exact label rather than guess blindly.
+            near = rank_matches(words, text, min_score=0.0)[:5]
+            return {
+                "found": False,
+                "text": None,
+                "score": None,
+                "image_x": None,
+                "image_y": None,
+                "global_x": None,
+                "global_y": None,
+                "candidates": [m.word.text for m in near],
+            }
 
         @mcp.tool(
             name="vue_calibrate",

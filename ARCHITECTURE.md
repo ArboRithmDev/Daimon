@@ -85,6 +85,16 @@ Daimon returns pixels and structure only — no vision, no OCR. Secret‑role fi
 and declared apps are redacted **before** anything is serialized
 (`exclusions.py`, applied inside the senses).
 
+**Scoped exception — `vue_find` locator (AXE 3).** "No vision/OCR" is a principle
+about *interpretation* (turning pixels into meaning/decisions). `vue_find` runs
+on‑device OCR to answer one narrow question — *where is the label you named?* — and
+returns a **position**, not a comprehension: localisation ≠ interprétation. It is
+the Vue‑only fallback for surfaces with no accessibility tree (WinDev, old Win32,
+custom‑drawn, Electron). It stays strictly local‑first / no network (Apple Vision
+on macOS, a Win32/Tesseract twin on Windows) and the matcher is a dumb string
+comparator, never an NLP model, so the locator stays on the localisation side of
+the line. Daimon still does not read the screen *for* you.
+
 ### Motor (act → guard → gate → actuate)
 
 Every `main_*` tool builds a `MotorAction` and runs it through the organ

@@ -47,6 +47,12 @@ Daimon supplies pixels and structure only. It does **no** vision or OCR itself;
 the client looks with its own eyes. Output is bounded by default to keep token
 cost low (`max_depth`, `root`, `roles`, `region`, `summary`, …).
 
+> One scoped exception: `vue_find` runs **on‑device** OCR to locate a *visible
+> label* and return clickable coordinates when there is no accessibility tree to
+> click (WinDev / old Win32 / custom‑drawn / Electron). It is a **locator** — it
+> returns a position, not a reading of the screen (localisation ≠ interprétation) —
+> and never leaves the machine (no network).
+
 | Sense | What it gives | Tools |
 |-------|---------------|-------|
 | **Vue** | screen capture (raw pixels) | `vue_snapshot`, `vue_displays` |
