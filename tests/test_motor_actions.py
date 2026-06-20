@@ -1,4 +1,4 @@
-from daimon.motor.actions import ACTIONS, level_for
+from daimon.motor.actions import ACTIONS, level_for, requires_observed_target
 from daimon.motor.types import Level
 
 
@@ -30,3 +30,11 @@ def test_unknown_verb_raises():
     import pytest
     with pytest.raises(KeyError):
         level_for("main_launch_missiles")
+
+
+def test_requires_observed_target_positional_vs_not():
+    for verb in ("click", "press", "drag", "mouse_down", "mouse_up"):
+        assert requires_observed_target(verb) is True
+    for verb in ("key", "type", "key_down", "key_up", "activate", "hover", "navigate"):
+        assert requires_observed_target(verb) is False
+    assert requires_observed_target("unknown_verb") is True  # safe default

@@ -1,7 +1,7 @@
 from daimon.config import ExclusionConfig
 from daimon.exclusions import ExclusionFilter
 from daimon.motor.guard import PolicyGuard
-from daimon.motor.types import Declaration, Decision, Level, MotorAction, Target, Verdict
+from daimon.motor.types import Declaration, Decision, Level, MotorAction, Reversibility, Target, Verdict
 
 
 def _guard(ceiling, exclusions=None):
@@ -62,3 +62,35 @@ def test_l4_reversible_action_allows_without_mandatory_log():
     )
     assert d.verdict == Verdict.ALLOW
     assert d.must_log is False
+
+
+def test_keyboard_action_not_gated_for_missing_observed_target():
+    # A benign chord (cmd+M) with no observable target used to GATE; now it ALLOWs at L3.
+    g = _guard(Level.VALIDATION)
+    a = MotorAction(name="key", level=Level.INPUT, target=Target(observed=False),
+                    declaration=Declaration(reversible=True, intent="test"),
+                    params={"key": "m", "modifiers": ["cmd"]})
+    assert g.evaluate(a).verdict == Verdict.ALLOW
+
+
+def test_positional_click_still_gates_for_missing_observed_target():
+    g = _guard(Level.VALIDATION)
+    a = MotorAction(name="click", level=Level.INPUT, target=Target(x=10, y=10, observed=False),
+                    declaration=Declaration(reversible=True, intent="test"),
+                    params={})
+    assert g.evaluate(a).verdict == Verdict.GATE
+
+
+def test_dangerous_keyboard_combo_still_gates():
+    # Force the classifier to mark the combo irreversible — the keyboard exemption must NOT
+    # bypass combo classification.
+    from daimon.motor.reversibility import Reversibility
+    g = PolicyGuard(
+        ExclusionFilter(ExclusionConfig()),
+        ceiling_provider=lambda: Level.VALIDATION,
+        classifier=lambda a: Reversibility(irreversible=True, reason="dangerous combo")
+    )
+    a = MotorAction(name="key", level=Level.INPUT, target=Target(observed=False),
+                    declaration=Declaration(reversible=True, intent="test"),
+                    params={"key": "q", "modifiers": ["cmd"]})
+    assert g.evaluate(a).verdict == Verdict.GATE
