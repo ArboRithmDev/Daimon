@@ -27,8 +27,11 @@
 ## 3. Invariants préservés
 
 1. **Cœur pur OS-agnostique + Fake** ; AppKit/AX minces.
-2. **Parité Mac/Windows** : chaque primitive a son backend macOS réel + un **scaffold Windows**
-   (`NotImplementedError` + TODO `ShowWindow SW_MINIMIZE/SW_HIDE/SW_RESTORE`).
+2. **Parité Mac/Windows** : backend macOS réel + **seam Windows documentée**. ⚠️ `feat/windows-port`
+   porte DÉJÀ un vrai `actuator_win.py` (sans window ops) → **ne PAS créer de stub `actuator_win.py`
+   sur main** (conflit merge). La parité = un TODO explicite dans les docstrings des méthodes macOS
+   (`ShowWindow SW_MINIMIZE/SW_HIDE/SW_RESTORE`) ; les 3 ops seront ajoutées au `WindowsActuator`
+   existant au moment du merge.
 3. **Le guard reste l'unique chokepoint** : les nouvelles ops passent par `organ.act` → guard
    (niveau **L1 NONDESTRUCTIVE**, réversible) ; refusées sous L0 ; respectent le plafond.
 4. **Sécurité inchangée** : pas de secret touché ; ops ciblées app-by-bundle (pas de cible écran à
@@ -51,7 +54,9 @@
   - `_window_minimize` : résout le pid → AX `AXUIElementCreateApplication(pid)` → fenêtre focus
     (`kAXFocusedWindowAttribute`, repli `kAXWindowsAttribute[0]`) → set `kAXMinimizedAttribute=True`.
   - Dispatch ajouté dans la table `execute()` (à côté de `activate`/`press`).
-- **`actuator_win.py`** : scaffold des 3 (`NotImplementedError`, docstring `ShowWindow`).
+- **Parité Windows** : pas de fichier stub sur main (cf. §3.2) — chaque méthode macOS porte un TODO
+  `ShowWindow SW_MINIMIZE/SW_HIDE/SW_RESTORE` ; le `WindowsActuator` de `feat/windows-port` les
+  reçoit au merge.
 - **`server.py`** (`_register_motor`) : 3 tools MCP `main_window_minimize/hide/show(intent, bundle="",
   title="", pid=0)` → `organ.act(MotorAction(name="window_*", level=level_for(...), target=Target(),
   declaration=Declaration(reversible=True, intent=...), params={bundle,title,pid}))`.
