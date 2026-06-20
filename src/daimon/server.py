@@ -15,6 +15,7 @@ from .motor.actions import level_for
 from .motor.factory import build_organ
 from .motor.types import Declaration, MotorAction, Target
 from .senses.base import Sense
+from .senses.delegation import build_server_instructions
 from .senses.touche import Touche
 from .senses.vue import Vue
 
@@ -303,7 +304,7 @@ def build_server() -> FastMCP:
     config = load_config()
     exclusions = ExclusionFilter(config.exclusions)
 
-    mcp = FastMCP("daimon")
+    mcp = FastMCP("daimon", instructions=build_server_instructions())
 
     senses: list[Sense] = [
         Vue(exclusions),

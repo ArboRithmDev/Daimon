@@ -88,3 +88,13 @@ def pilot_brief(profile_brief: dict, objective: str) -> dict:
         "next": ("Ready. If you can spawn a sub-agent, run subagent_prompt on the smallest "
                  "capable model; otherwise run it inline."),
     }
+
+
+def build_server_instructions() -> str:
+    """The MCP server-instructions Daimon advertises to every client at connect."""
+    return (
+        "Daimon is a local perception + action organ for any AI client: see the screen "
+        "(vue_*), read the accessibility tree (touche_*), act with the Hands (main_*), and "
+        "show overlays (overlay_*). It is pull-only and calls no AI itself.\n\n"
+        + delegation_protocol_text()
+    )

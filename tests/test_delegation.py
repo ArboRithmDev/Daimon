@@ -60,3 +60,14 @@ def test_pilot_brief_not_ready_on_expected_mismatch():
 def test_pilot_brief_rejects_empty_objective():
     with pytest.raises(ValueError):
         pilot_brief(_READY_BRIEF, "   ")
+
+
+# Task 3: build_server_instructions tests
+from daimon.senses.delegation import build_server_instructions
+
+
+def test_server_instructions_carry_the_protocol():
+    instr = build_server_instructions()
+    assert "Daimon" in instr
+    assert "vue_pilot_brief" in instr               # the delegation protocol is included
+    assert not _BRANDS.search(instr)

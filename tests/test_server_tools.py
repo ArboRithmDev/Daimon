@@ -12,3 +12,8 @@ def test_server_exposes_full_toolset():
         "main_mouse_down", "main_mouse_up", "main_key_down", "main_key_up",
     }
     assert expected <= names
+
+
+def test_server_advertises_delegation_in_instructions():
+    instr = getattr(build_server(), "instructions", "") or ""
+    assert "vue_pilot_brief" in instr
