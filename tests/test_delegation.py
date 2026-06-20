@@ -34,7 +34,7 @@ _MISMATCH_BRIEF = {**_READY_BRIEF, "expected_ok": False}
 def test_pilot_brief_ready_builds_coord_free_prompt():
     out = pilot_brief(_READY_BRIEF, "open the invoice and read the total")
     assert out["ready"] is True
-    assert out["mode_hint"] == "delegate_to_smallest_capable_subagent_else_run_inline"
+    assert out["mode_hint"] == "delegate_to_a_model_capable_of_reliable_multi_step_tool_calling_else_run_inline"
     p = out["subagent_prompt"]
     assert "open the invoice and read the total" in p
     assert "display=0" in p and "display=1" in p
@@ -89,3 +89,35 @@ def test_subagent_prompt_tells_it_to_check_the_ceiling():
     }
     p = pilot_brief(brief, "read the total")["subagent_prompt"]
     assert "main_ceiling" in p
+
+
+# --- Stream B: robustness against weak/hallucinating drivers ---------------
+def test_protocol_reframes_to_capability_not_smallest():
+    txt = delegation_protocol_text().lower()
+    assert "reliable multi-step tool-calling" in txt
+    assert "not necessarily your smallest" in txt
+    assert _BRANDS.search(txt) is None
+
+
+def test_server_instructions_steer_to_mcp_tools_not_shell_cli():
+    instr = build_server_instructions()
+    low = instr.lower()
+    assert "mcp tool" in low
+    assert "toolsearch" in low or "load them first" in low          # deferred-tool loading
+    assert "shell" in low and "daimon" in instr                     # forbid `daimon ...` shell
+    assert "never run" in low
+    assert _BRANDS.search(instr) is None
+
+
+def test_subagent_prompt_loads_deferred_tools_and_forbids_shell():
+    brief = {
+        "matched": True, "active_profile": "p", "signature": "s", "expected_ok": True,
+        "displays": [{"index": 0, "width": 100, "height": 100, "is_main": True,
+                      "origin_x": 0, "origin_y": 0, "dpi": 96}],
+    }
+    p = pilot_brief(brief, "read the total")["subagent_prompt"]
+    low = p.lower()
+    assert "toolsearch" in low or "deferred" in low                 # step 0: load the tools
+    assert "shell" in low                                           # forbid shelling out
+    assert "do not" in low and "call them" in low                  # anti-abandon
+    assert _BRANDS.search(p) is None

@@ -16,9 +16,11 @@ def delegation_protocol_text() -> str:
         "For multi-step tasks that drive an on-screen UI and extract text, first call "
         "vue_pilot_brief(objective, expected=<profile name if known>) to get a go/no-go "
         "gate plus a ready-to-paste sub-agent prompt.\n"
-        "- If you can spawn sub-agents: run the returned subagent_prompt on the smallest, "
-        "fastest model you have that can reliably click and read; keep its screenshots inside "
-        "the sub-agent and bubble up only the extracted text.\n"
+        "- If you can spawn sub-agents: run the returned subagent_prompt on a model capable of "
+        "reliable multi-step tool-calling — NOT necessarily your smallest. A model that cannot "
+        "reliably chain tool calls will stall or hallucinate a CLI instead of calling the tools; "
+        "if your cheapest model does that, step up a tier. Keep its screenshots inside the "
+        "sub-agent and bubble up only the extracted text.\n"
         "- If you cannot spawn sub-agents: run the same prompt inline with your current model.\n"
         "Always drive with space='image' + display=k (Daimon resolves pixels itself — never "
         "reason about coordinates); Daimon enforces the L0-L4 Hands ceiling and secret redaction "
@@ -32,7 +34,7 @@ _RULES = [
     "Daimon enforces the L0-L4 Hands ceiling and secret redaction; never try to raise the ceiling.",
 ]
 
-_MODE_HINT = "delegate_to_smallest_capable_subagent_else_run_inline"
+_MODE_HINT = "delegate_to_a_model_capable_of_reliable_multi_step_tool_calling_else_run_inline"
 
 
 def hands_ceiling_note() -> str:
@@ -53,6 +55,11 @@ def _subagent_prompt(profile: str, indices: list[int], objective: str) -> str:
         f"'{profile}'. Addressable displays: {addr}.\n"
         f"Objective: {objective}\n"
         "How to act:\n"
+        "- Step 0 — load the tools: these are real MCP tools (vue_snapshot, vue_find, main_click, "
+        "main_ceiling, …). In a fresh sub-agent thread they may be deferred — load them first "
+        "(ToolSearch select the mcp daimon tools), then CALL them. They ARE callable: do not "
+        "explain that you cannot call tools, and never run a `daimon ...` shell command — there is "
+        "no such CLI; only the MCP tools perceive and act.\n"
         "- First call main_ceiling to learn your authorization envelope; do not attempt actions "
         "listed in gated_above — report them as out of scope instead.\n"
         "- Perceive with vue_snapshot(display=k) and read the labels. For apps with no "
@@ -98,8 +105,9 @@ def pilot_brief(profile_brief: dict, objective: str) -> dict:
         "gate": gate, "ready": True, "contract": contract,
         "subagent_prompt": _subagent_prompt(profile_name, indices, objective),
         "mode_hint": _MODE_HINT,
-        "next": ("Ready. If you can spawn a sub-agent, run subagent_prompt on the smallest "
-                 "capable model; otherwise run it inline."),
+        "next": ("Ready. If you can spawn a sub-agent, run subagent_prompt on a model capable of "
+                 "reliable multi-step tool-calling (not necessarily your smallest); otherwise run "
+                 "it inline."),
     }
 
 
@@ -109,7 +117,22 @@ def build_server_instructions() -> str:
         "Daimon is a local perception + action organ for any AI client: see the screen "
         "(vue_*), read the accessibility tree (touche_*), act with the Hands (main_*), and "
         "show overlays (overlay_*). It is pull-only and calls no AI itself.\n\n"
+        + using_daimon_note()
+        + "\n\n"
         + delegation_protocol_text()
         + "\n\n"
         + hands_ceiling_note()
+    )
+
+
+def using_daimon_note() -> str:
+    """How to actually invoke Daimon — MCP tools, never a shell CLI."""
+    return (
+        "## Using Daimon\n"
+        "Daimon is used through its MCP tools — call vue_snapshot, vue_displays, touche_tree, "
+        "main_click, overlay_* directly as tools. If your client lists them as deferred or "
+        "unloaded, load them first (e.g. ToolSearch select the mcp daimon tools) before calling. "
+        "There is NO `daimon` shell command for perception or action — never run `daimon ...` in a "
+        "shell for these; it does not exist, will fail, and interrupts the user. The tools are "
+        "callable; do not say you cannot call them — call them."
     )
