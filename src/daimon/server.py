@@ -298,6 +298,20 @@ def _register_motor(mcp) -> None:
             name="key_up", level=level_for("main_key_up"), target=Target(),
             declaration=Declaration(reversible=True, intent=intent), params={"key": key}))
 
+    @mcp.tool(
+        name="main_ceiling",
+        description=(
+            "Report the active Hands authorization ceiling and which tools it gates. "
+            "Read-only — it never changes the ceiling. Check it before driving so you can "
+            "declare up-front what you cannot do rather than being refused mid-flow. Returns "
+            "{ceiling, l4_active, levels:{tool:level}, gated_above:[tools above the ceiling]}."
+        ),
+    )
+    def main_ceiling() -> dict:
+        """Report the active Hands authorization ceiling and gated tools."""
+        from .motor.actions import ceiling_report
+        return ceiling_report(organ.current_ceiling())
+
 
 def build_server() -> FastMCP:
     """Assemble the FastMCP server with every sense and organ registered."""

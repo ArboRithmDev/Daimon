@@ -23,3 +23,9 @@ def test_vue_pilot_brief_is_registered():
     import asyncio
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     assert "vue_pilot_brief" in names
+
+
+def test_main_ceiling_is_registered():
+    import asyncio
+    names = {t.name for t in asyncio.run(build_server().list_tools())}
+    assert "main_ceiling" in names
