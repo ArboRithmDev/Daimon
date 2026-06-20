@@ -50,3 +50,13 @@ def requires_observed_target(action_name: str) -> bool:
     """
     spec = ACTIONS.get("main_" + action_name)
     return spec.requires_observed_target if spec else True
+
+
+def ceiling_report(current: Level) -> dict:
+    """Read-only snapshot of the active ceiling and which tools it gates."""
+    return {
+        "ceiling": current.name,
+        "l4_active": current == Level.AUTONOMOUS,
+        "levels": {name: d.level.name for name, d in ACTIONS.items()},
+        "gated_above": sorted(name for name, d in ACTIONS.items() if d.level > current),
+    }

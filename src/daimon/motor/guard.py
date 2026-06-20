@@ -60,3 +60,7 @@ class PolicyGuard:
             return Decision(Verdict.GATE, reason)
 
         return Decision(Verdict.ALLOW, "reversible, within ceiling")
+
+    def current_ceiling(self) -> Level:
+        """The active ceiling (what the ceiling_provider currently returns)."""
+        return self._ceiling()

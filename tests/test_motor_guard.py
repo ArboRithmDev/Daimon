@@ -94,3 +94,8 @@ def test_dangerous_keyboard_combo_still_gates():
                     declaration=Declaration(reversible=True, intent="test"),
                     params={"key": "q", "modifiers": ["cmd"]})
     assert g.evaluate(a).verdict == Verdict.GATE
+
+
+def test_guard_exposes_current_ceiling():
+    g = _guard(Level.INPUT)
+    assert g.current_ceiling() == Level.INPUT

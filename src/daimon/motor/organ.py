@@ -147,3 +147,7 @@ class MotorOrgan:
         note = getattr(self._focus, "note_activated", None)
         if note is not None:
             note(window)
+
+    def current_ceiling(self):
+        """Expose the active ceiling for read-only reporting (e.g. main_ceiling)."""
+        return self._guard.current_ceiling()

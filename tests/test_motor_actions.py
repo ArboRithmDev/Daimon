@@ -38,3 +38,21 @@ def test_requires_observed_target_positional_vs_not():
     for verb in ("key", "type", "key_down", "key_up", "activate", "hover", "navigate"):
         assert requires_observed_target(verb) is False
     assert requires_observed_target("unknown_verb") is True  # safe default
+
+
+def test_ceiling_report_at_validation():
+    from daimon.motor.actions import ceiling_report
+    r = ceiling_report(Level.VALIDATION)
+    assert r["ceiling"] == "VALIDATION"
+    assert r["l4_active"] is False
+    assert r["levels"]["main_click"] == "INPUT"
+    # AUTONOMOUS-level primitives are above L3 → gated.
+    assert "main_mouse_down" in r["gated_above"]
+    # An INPUT-level act is within L3 → not gated.
+    assert "main_click" not in r["gated_above"]
+
+
+def test_ceiling_report_l4_active():
+    from daimon.motor.actions import ceiling_report
+    assert ceiling_report(Level.AUTONOMOUS)["l4_active"] is True
+    assert ceiling_report(Level.AUTONOMOUS)["gated_above"] == []
