@@ -269,7 +269,6 @@ class StatusItemController:
         elif action_id == "engage_l4":
             try:
                 from AppKit import NSAlert, NSAlertFirstButtonReturn
-                from ...applog import log_exception
                 alert = NSAlert.alloc().init()
                 alert.setMessageText_("Engage L4 autonomy?")
                 alert.setInformativeText_(
