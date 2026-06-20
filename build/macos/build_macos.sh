@@ -84,6 +84,13 @@ for size in 16 32 64 128 256 512; do
 done
 iconutil -c icns -o "$ICONS_DIR/Daimon.icns" "$ICONSET_DIR"
 
+# 2.5 Stamp the version into the bundle. The frozen .app has no pyproject.toml,
+#     so freeze the pyproject-derived $VERSION into daimon/_version.py (which
+#     daimon/__init__.py reads). Gitignored — a build artifact, never committed.
+printf '"""Version stamped by the build from pyproject.toml. Do not edit/commit."""\n__version__ = "%s"\n' \
+    "$VERSION" > "$REPO_ROOT/src/daimon/_version.py"
+echo "==> Stamped src/daimon/_version.py = $VERSION"
+
 # 3. PyInstaller → Daimon.app.
 (
     cd "$REPO_ROOT"

@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+# Build-stamped version module (generated from pyproject.toml by the build).
+/src/daimon/_version.py
 .eggs/
 dist/
 .venv/
