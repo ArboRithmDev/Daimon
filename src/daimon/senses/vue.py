@@ -30,6 +30,7 @@ from .calibration import (
     coord_space_from_profile,
     profile_from_displays,
 )
+from .delegation import pilot_brief
 from .find import locate, rank_matches
 
 
@@ -269,6 +270,23 @@ class Vue(Sense):
         def vue_profile_brief(expected: str | None = None) -> dict:
             displays = screen.list_displays()
             return active_profile_brief(self._profiles, displays, expected=expected)
+
+        @mcp.tool(
+            name="vue_pilot_brief",
+            description=(
+                "Per-task delegation packet for a UI-driving/extraction task. Returns the "
+                "active-profile go/no-go gate plus a ready-to-paste sub-agent prompt. Call this "
+                "BEFORE driving the UI: if you can spawn sub-agents, run subagent_prompt on your "
+                "smallest capable model and keep its screenshots out of your context; otherwise "
+                "run it inline. Returns {gate, ready, contract, subagent_prompt, mode_hint, next}. "
+                "If ready is False, the live screen doesn't match the expected profile — calibrate "
+                "first, don't drive blind."
+            ),
+        )
+        def vue_pilot_brief(objective: str, expected: str | None = None) -> dict:
+            displays = screen.list_displays()
+            brief = active_profile_brief(self._profiles, displays, expected=expected)
+            return pilot_brief(brief, objective)
 
     def _redact(self, frame) -> object:
         """Apply the exclusion redaction chain to a captured frame's image.

@@ -17,3 +17,9 @@ def test_server_exposes_full_toolset():
 def test_server_advertises_delegation_in_instructions():
     instr = getattr(build_server(), "instructions", "") or ""
     assert "vue_pilot_brief" in instr
+
+
+def test_vue_pilot_brief_is_registered():
+    import asyncio
+    names = {t.name for t in asyncio.run(build_server().list_tools())}
+    assert "vue_pilot_brief" in names
