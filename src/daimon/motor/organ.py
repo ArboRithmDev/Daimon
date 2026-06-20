@@ -10,6 +10,7 @@ act(action):
 
 from __future__ import annotations
 
+import time
 from typing import Callable
 
 from .actuator import Actuator
@@ -23,6 +24,14 @@ from ..overlay.presenter import NullPresenter
 
 # Positional gestures whose effect depends on the target window being frontmost.
 _FOCUS_SENSITIVE = {"click", "press", "drag", "mouse_down", "type", "key"}
+
+# Window activation is asynchronous on the host: after an activate is issued the
+# window server switches the frontmost app a few tens of ms later. We re-read the
+# frontmost app up to _FOCUS_SETTLE_ATTEMPTS times, waiting _FOCUS_SETTLE_DELAY
+# between reads, so a genuine activation is not misreported as "never came
+# forward" merely because the switch had not landed at the first read.
+_FOCUS_SETTLE_ATTEMPTS = 6
+_FOCUS_SETTLE_DELAY = 0.03
 
 
 class MotorOrgan:
@@ -38,6 +47,7 @@ class MotorOrgan:
         prober: Prober,
         presenter=None,
         focus_probe: FocusProbe | None = None,
+        sleeper: Callable[[float], None] | None = None,
     ) -> None:
         self._guard = guard
         self._gate = gate
@@ -47,6 +57,7 @@ class MotorOrgan:
         self._prober = prober
         self._presenter = presenter or NullPresenter()
         self._focus = focus_probe
+        self._sleep = sleeper or time.sleep
 
     def _record(self, action: MotorAction, phase: str, extra: dict) -> bool:
         try:
@@ -134,12 +145,28 @@ class MotorOrgan:
         if not action.params.get("ensure_focus"):
             return {"focus": "not_attempted", "focus_warning": True,
                     "focus_detail": "target window is not frontmost; the gesture may have no effect"}
-        # ensure_focus: bring the target window forward, then re-check.
+        # ensure_focus: bring the target window forward, then re-check. Activation
+        # is async, so settle/retry before classifying (avoids a false negative).
         self._activate_window(window)
-        if window_is_frontmost(self._focus.frontmost(), window):
+        if self._await_frontmost(window):
             return {"focus": "activated_and_frontmost", "focused": True}
         return {"focus": "activated_but_not_frontmost", "focused": True, "focus_warning": True,
                 "focus_detail": "activated the target window but it is still not frontmost"}
+
+    def _await_frontmost(self, window: dict) -> bool:
+        """Whether `window` becomes frontmost within the settle budget.
+
+        The host activates windows asynchronously: reading the frontmost app once,
+        immediately after issuing the activate, races the window server and yields
+        a false negative. Poll a few times with a short delay so a genuine
+        activation is observed; give up (return False) once the budget is spent.
+        """
+        for attempt in range(_FOCUS_SETTLE_ATTEMPTS):
+            if window_is_frontmost(self._focus.frontmost(), window):
+                return True
+            if attempt < _FOCUS_SETTLE_ATTEMPTS - 1:
+                self._sleep(_FOCUS_SETTLE_DELAY)
+        return False
 
     def _activate_window(self, window: dict) -> None:
         """Issue an internal activate gesture for `window` (NONDESTRUCTIVE)."""

@@ -61,25 +61,47 @@ class FakeFocusProbe:
     With `activates=True` it models the real activation effect — after the organ
     issues an activate, the next `frontmost()` reports the activated window,
     letting tests assert the organ observes the focus change.
+
+    With `activates_after_polls=k` it models *asynchronous* activation: the
+    switch is only visible after `k` further `frontmost()` polls, so a single
+    immediate re-check still sees the old frontmost. This exercises the organ's
+    bounded settle/retry after an activate (it must not report a false negative
+    just because the window server had not switched yet).
     """
 
-    def __init__(self, state: FocusState | None = None, *, activates: bool = False) -> None:
+    def __init__(self, state: FocusState | None = None, *, activates: bool = False,
+                 activates_after_polls: int = 0) -> None:
         self._state = state
-        self._activates = activates
+        self._activates = activates or activates_after_polls > 0
+        self._activates_after_polls = activates_after_polls
+        self._pending: FocusState | None = None
+        self._polls_left = 0
         self.activated: list[dict] = []
 
     def frontmost(self) -> FocusState | None:
+        if self._pending is not None:
+            if self._polls_left <= 0:
+                self._state = self._pending
+                self._pending = None
+            else:
+                self._polls_left -= 1
         return self._state
 
     def note_activated(self, window: dict) -> None:
         """Called by the organ after it issues an activate, so the fake can flip."""
         self.activated.append(window)
-        if self._activates:
-            self._state = FocusState(
-                bundle=window.get("bundle"),
-                title=window.get("title"),
-                pid=window.get("pid"),
-            )
+        if not self._activates:
+            return
+        switched = FocusState(
+            bundle=window.get("bundle"),
+            title=window.get("title"),
+            pid=window.get("pid"),
+        )
+        if self._activates_after_polls > 0:
+            self._pending = switched
+            self._polls_left = self._activates_after_polls
+        else:
+            self._state = switched
 
 
 class MacOSFocusProbe:

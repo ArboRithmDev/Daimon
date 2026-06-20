@@ -18,7 +18,7 @@ from daimon.motor.probe import FakeProber
 from daimon.motor.types import Declaration, Level, MotorAction, Target
 
 
-def _organ(tmp_path, *, focus, observed=None, actuator=None, ceiling=Level.INPUT):
+def _organ(tmp_path, *, focus, observed=None, actuator=None, ceiling=Level.INPUT, sleeper=None):
     guard = PolicyGuard(ExclusionFilter(ExclusionConfig()), ceiling_provider=lambda: ceiling)
     return MotorOrgan(
         guard=guard, gate=FakeGate(answer=True),
@@ -26,6 +26,7 @@ def _organ(tmp_path, *, focus, observed=None, actuator=None, ceiling=Level.INPUT
         session_log=AppendOnlyLedger(tmp_path / "s.jsonl"), clock=lambda: "T",
         prober=FakeProber(target=observed or Target(role="AXButton", label="Tab", observed=True)),
         focus_probe=focus,
+        sleeper=sleeper if sleeper is not None else lambda _d: None,
     )
 
 
@@ -222,3 +223,20 @@ def test_focus_state_activated_but_not_frontmost(tmp_path):
     assert out["focus"] == "activated_but_not_frontmost"
     assert out.get("focused") is True
     assert out.get("focus_warning") is True
+
+
+def test_ensure_focus_settles_via_retry_after_async_activation(tmp_path):
+    # Field finding (AXE 4b validation): macOS activation is async — the window
+    # only becomes frontmost a few polls after the activate is issued. A single
+    # immediate re-check races the window server and falsely reports
+    # "activated_but_not_frontmost". The organ must retry (bounded settle) so a
+    # genuine activation is read as "activated_and_frontmost".
+    focus = FakeFocusProbe(state=FocusState(bundle="com.other", title="Other", pid=1),
+                           activates_after_polls=2)
+    sleeps: list[float] = []
+    organ = _organ(tmp_path, focus=focus, sleeper=sleeps.append)
+    out = organ.act(_click(window={"bundle": "com.acme.editor"}, ensure_focus=True))
+    assert out["focus"] == "activated_and_frontmost"
+    assert out.get("focused") is True
+    assert "focus_warning" not in out
+    assert sleeps, "the organ must wait between frontmost re-checks (settle)"
