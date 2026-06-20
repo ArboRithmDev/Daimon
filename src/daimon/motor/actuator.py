@@ -45,27 +45,71 @@ class MacOSActuator:
             clock=time.monotonic,
         )
 
+    def _handlers(self):
+        return {
+            "click": self._click, "type": self._type, "drag": self._drag,
+            "press": self._press, "navigate": self._navigate, "key": self._key,
+            "hover": self._hover, "activate": self._activate,
+            "mouse_down": self._mouse_down, "mouse_up": self._mouse_up,
+            "key_down": self._key_down, "key_up": self._key_up,
+            "window_minimize": self._window_minimize,
+            "window_hide": self._window_hide,
+            "window_show": self._window_show,
+        }
+
     def execute(self, action: MotorAction) -> dict:
         """Dispatch the action to its handler after ticking the hold watchdog."""
         self._watchdog.tick()
-        handler = {
-            "click": self._click,
-            "type": self._type,
-            "drag": self._drag,
-            "press": self._press,
-            "navigate": self._navigate,
-            "key": self._key,
-            "hover": self._hover,
-            "activate": self._activate,
-            "mouse_down": self._mouse_down,
-            "mouse_up": self._mouse_up,
-            "key_down": self._key_down,
-            "key_up": self._key_up,
-        }.get(action.name)
+        handler = self._handlers().get(action.name)
         if handler is None:
             raise ValueError(f"unknown action: {action.name}")
         handler(action)
         return {"status": "executed", "action": action.name}
+
+    def _running_app(self, p: dict):
+        from AppKit import NSWorkspace
+        for app in NSWorkspace.sharedWorkspace().runningApplications():
+            if (p.get("bundle") and app.bundleIdentifier() == p["bundle"]) or \
+               (p.get("title") and app.localizedName() == p["title"]) or \
+               (p.get("pid") and int(app.processIdentifier()) == p["pid"]):
+                return app
+        raise RuntimeError(f"No app matching {p}")
+
+    def _window_hide(self, action: MotorAction) -> None:
+        # Windows twin: ShowWindow(hwnd, SW_HIDE). TODO real Win runtime (actuator_win).
+        self._running_app(action.params).hide()
+
+    def _window_minimize(self, action: MotorAction) -> None:
+        # Windows twin: ShowWindow(hwnd, SW_MINIMIZE). TODO real Win runtime (actuator_win).
+        from ApplicationServices import (
+            AXUIElementCreateApplication, AXUIElementCopyAttributeValue,
+            AXUIElementSetAttributeValue, kAXFocusedWindowAttribute,
+            kAXWindowsAttribute, kAXMinimizedAttribute,
+        )
+        app = self._running_app(action.params)
+        ax = AXUIElementCreateApplication(int(app.processIdentifier()))
+        err, win = AXUIElementCopyAttributeValue(ax, kAXFocusedWindowAttribute, None)
+        if err != 0 or win is None:
+            err, wins = AXUIElementCopyAttributeValue(ax, kAXWindowsAttribute, None)
+            if err != 0 or not wins:
+                raise RuntimeError("no window to minimize")
+            win = wins[0]
+        AXUIElementSetAttributeValue(win, kAXMinimizedAttribute, True)
+
+    def _window_show(self, action: MotorAction) -> None:
+        # Windows twin: ShowWindow(hwnd, SW_RESTORE). TODO real Win runtime (actuator_win).
+        from ApplicationServices import (
+            AXUIElementCreateApplication, AXUIElementCopyAttributeValue,
+            AXUIElementSetAttributeValue, kAXWindowsAttribute, kAXMinimizedAttribute,
+        )
+        app = self._running_app(action.params)
+        app.unhide()
+        ax = AXUIElementCreateApplication(int(app.processIdentifier()))
+        err, wins = AXUIElementCopyAttributeValue(ax, kAXWindowsAttribute, None)
+        if err == 0 and wins:
+            for win in wins:
+                AXUIElementSetAttributeValue(win, kAXMinimizedAttribute, False)
+        app.activateWithOptions_(1 << 1)  # NSApplicationActivateIgnoringOtherApps
 
     def _key(self, action: MotorAction) -> None:
         import Quartz
