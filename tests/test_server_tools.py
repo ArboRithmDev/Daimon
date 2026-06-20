@@ -29,3 +29,9 @@ def test_main_ceiling_is_registered():
     import asyncio
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     assert "main_ceiling" in names
+
+
+def test_window_tools_are_registered():
+    import asyncio
+    names = {t.name for t in asyncio.run(build_server().list_tools())}
+    assert {"main_window_minimize", "main_window_hide", "main_window_show"} <= names

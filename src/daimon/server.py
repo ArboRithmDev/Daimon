@@ -238,6 +238,39 @@ def _register_motor(mcp) -> None:
             name="activate", level=level_for("main_activate"), target=Target(),
             declaration=Declaration(reversible=True, intent=intent), params=params))
 
+    def _window_params(bundle: str, title: str, pid: int) -> dict:
+        """Build the window-targeting params dict."""
+        return {k: v for k, v in (("bundle", bundle), ("title", title), ("pid", pid)) if v}
+
+    def _window_action(verb: str, intent: str, bundle: str, title: str, pid: int) -> dict:
+        """Execute a window action via organ.act."""
+        return organ.act(MotorAction(
+            name=verb, level=level_for("main_" + verb), target=Target(),
+            declaration=Declaration(reversible=True, intent=intent),
+            params=_window_params(bundle, title, pid),
+        ))
+
+    @mcp.tool(name="main_window_minimize", description=(
+        "Minimize the target app's front window (AX, immune to app key rebinds — unlike a "
+        "Cmd+M chord). Target by bundle, title, or pid. Reversible (main_window_show restores)."))
+    def main_window_minimize(intent: str, bundle: str = "", title: str = "", pid: int = 0) -> dict:
+        """Minimize the target app's front window."""
+        return _window_action("window_minimize", intent, bundle, title, pid)
+
+    @mcp.tool(name="main_window_hide", description=(
+        "Hide the target app (NSRunningApplication.hide — immune to app key rebinds, unlike "
+        "Cmd+H). Target by bundle, title, or pid. Reversible (main_window_show restores)."))
+    def main_window_hide(intent: str, bundle: str = "", title: str = "", pid: int = 0) -> dict:
+        """Hide the target app."""
+        return _window_action("window_hide", intent, bundle, title, pid)
+
+    @mcp.tool(name="main_window_show", description=(
+        "Unhide + un-minimize + raise the target app (restore after minimize/hide). Target by "
+        "bundle, title, or pid."))
+    def main_window_show(intent: str, bundle: str = "", title: str = "", pid: int = 0) -> dict:
+        """Unhide + un-minimize + raise the target app."""
+        return _window_action("window_show", intent, bundle, title, pid)
+
     @mcp.tool(name="main_drag", description=(
         "Drag from (from_x,from_y) to (to_x,to_y). The drop destination is "
         "classified for reversibility (e.g. dropping on Trash gates)."))
