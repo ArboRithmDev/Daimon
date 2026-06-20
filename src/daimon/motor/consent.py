@@ -67,3 +67,13 @@ class ConsentManager:
         self._ledger.append({"event": "disengage_l4", "ts": ts})
         self._state_path.write_text(json.dumps({"engaged": False, "ts": ts}), encoding="utf-8")
         return True
+
+    def engage_confirmed(self, *, ts: str, source: str = "tray") -> bool:
+        """Engage L4 from a human-confirmed UI gesture (no typed phrase).
+
+        The deliberate consent gesture is the confirmation popup shown out-of-band by the tray;
+        the engagement is still recorded immutably in the ledger and is reversible via disengage().
+        """
+        self._ledger.append({"event": "engage_l4", "ts": ts, "method": "confirmed", "source": source})
+        self._state_path.write_text(json.dumps({"engaged": True, "ts": ts}), encoding="utf-8")
+        return True
