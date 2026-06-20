@@ -190,117 +190,124 @@ class StatusItemController:
         return callback
 
     def _dispatch(self, action_id: str) -> None:
-        """Route *action_id* to the appropriate handler."""
-        if action_id.startswith("set_ceiling:"):
-            name = action_id[len("set_ceiling:"):]
-            from ..settings import set_ceiling
-            from ...config import _MOTOR_DEFAULT
-            set_ceiling(name, _MOTOR_DEFAULT)
-            self._rebuild_menu()
-
-        elif action_id == "toggle_overlay":
-            from ..state import gather
-            from ..settings import set_overlay
-            from ...config import _OVERLAY_DEFAULT
-            current = gather().overlay_on
-            set_overlay(not current, _OVERLAY_DEFAULT)
-            self._rebuild_menu()
-
-        elif action_id == "install_all":
+        """Route *action_id* through the shared ActionRouter (this class is the
+        ActionHandlers). A refused id is logged, never silently dropped."""
+        from ...tray.actions import ActionRouter
+        res = ActionRouter(self).dispatch(action_id)
+        if not res.ok:
             from ...applog import log_exception
-            try:
-                from ...setup.deploy import install_all
-                install_all()
-                self._rebuild_menu()
-            except Exception:
-                log_exception("install_all")
+            log_exception(f"action refused: {action_id}: {res.reason}")
 
-        elif action_id.startswith("toggle_client:"):
+    # --- ActionHandlers protocol: one method per action, bodies unchanged -----
+
+    def set_ceiling(self, name: str) -> None:
+        from ..settings import set_ceiling
+        from ...config import _MOTOR_DEFAULT
+        set_ceiling(name, _MOTOR_DEFAULT)
+        self._rebuild_menu()
+
+    def toggle_overlay(self) -> None:
+        from ..state import gather
+        from ..settings import set_overlay
+        from ...config import _OVERLAY_DEFAULT
+        current = gather().overlay_on
+        set_overlay(not current, _OVERLAY_DEFAULT)
+        self._rebuild_menu()
+
+    def install_all(self) -> None:
+        from ...applog import log_exception
+        try:
+            from ...setup.deploy import install_all
+            install_all()
+            self._rebuild_menu()
+        except Exception:
+            log_exception("install_all")
+
+    def toggle_client(self, name: str) -> None:
+        from ...applog import log_exception
+        try:
+            from ...setup.clients import base
+            from ...setup.clients.registry import default_adapters, detected
+            from ...setup.invocation import daimon_command
+            adapter = next((a for a in detected(default_adapters()) if a.name == name), None)
+            if adapter is not None:
+                if base.status(adapter, "daimon").action == "present":
+                    base.uninstall(adapter, "daimon")
+                else:
+                    base.install(adapter, "daimon", daimon_command())
+            self._rebuild_menu()
+        except Exception:
+            log_exception("toggle_client")
+
+    def run_setup(self) -> None:
+        from ...applog import log_exception, log_message
+        log_message("run_setup: opening onboarding window")
+        try:
+            from ...setup.gui.window import OnboardingController
+            from ...setup.permissions import MacOSBackend
+            self._onboard = OnboardingController(MacOSBackend())
+            self._onboard.show()
+            log_message("run_setup: onboarding window shown")
+        except Exception:
+            log_exception("run_setup")
+
+    def open_config(self) -> None:
+        try:
+            import subprocess
+            from ...userdata import config_dir
+            d = config_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["open", str(d)], check=False)
+        except Exception:
             from ...applog import log_exception
-            name = action_id[len("toggle_client:"):]
-            try:
-                from ...setup.clients import base
-                from ...setup.clients.registry import default_adapters, detected
-                from ...setup.invocation import daimon_command
-                adapter = next((a for a in detected(default_adapters()) if a.name == name), None)
-                if adapter is not None:
-                    if base.status(adapter, "daimon").action == "present":
-                        base.uninstall(adapter, "daimon")
-                    else:
-                        base.install(adapter, "daimon", daimon_command())
-                self._rebuild_menu()
-            except Exception:
-                log_exception("toggle_client")
+            log_exception("open_config")
 
-        elif action_id == "run_setup":
-            from ...applog import log_exception, log_message
-            log_message("run_setup: opening onboarding window")
-            try:
-                from ...setup.gui.window import OnboardingController
-                from ...setup.permissions import MacOSBackend
-                self._onboard = OnboardingController(MacOSBackend())
-                self._onboard.show()
-                log_message("run_setup: onboarding window shown")
-            except Exception:
-                log_exception("run_setup")
+    def open_logs(self) -> None:
+        try:
+            import subprocess
+            from ...userdata import logs_dir
+            d = logs_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["open", str(d)], check=False)
+        except Exception:
+            from ...applog import log_exception
+            log_exception("open_logs")
 
-        elif action_id == "open_config":
-            try:
-                import subprocess
-                from ...userdata import config_dir
-                d = config_dir()
-                d.mkdir(parents=True, exist_ok=True)
-                subprocess.run(["open", str(d)], check=False)
-            except Exception:
-                from ...applog import log_exception
-                log_exception(action_id)
-
-        elif action_id == "open_logs":
-            try:
-                import subprocess
-                from ...userdata import logs_dir
-                d = logs_dir()
-                d.mkdir(parents=True, exist_ok=True)
-                subprocess.run(["open", str(d)], check=False)
-            except Exception:
-                from ...applog import log_exception
-                log_exception(action_id)
-
-        elif action_id == "engage_l4":
-            try:
-                from AppKit import NSAlert, NSAlertFirstButtonReturn
-                alert = NSAlert.alloc().init()
-                alert.setMessageText_("Engage L4 autonomy?")
-                alert.setInformativeText_(
-                    "Removes ALL per-action validation. Every action the AI requests will "
-                    "execute immediately, recorded in the immutable consent ledger. "
-                    "Disengage anytime from this menu."
-                )
-                alert.addButtonWithTitle_("Engage")
-                alert.addButtonWithTitle_("Cancel")
-                if alert.runModal() == NSAlertFirstButtonReturn:
-                    from datetime import datetime, timezone
-                    from ...motor.factory import build_consent
-                    build_consent().engage_confirmed(
-                        ts=datetime.now(timezone.utc).isoformat(), source="tray"
-                    )
-                    self._rebuild_menu()
-            except Exception:
-                from ...applog import log_exception
-                log_exception(action_id)
-
-        elif action_id == "disengage_l4":
-            try:
+    def engage_l4(self) -> None:
+        try:
+            from AppKit import NSAlert, NSAlertFirstButtonReturn
+            alert = NSAlert.alloc().init()
+            alert.setMessageText_("Engage L4 autonomy?")
+            alert.setInformativeText_(
+                "Removes ALL per-action validation. Every action the AI requests will "
+                "execute immediately, recorded in the immutable consent ledger. "
+                "Disengage anytime from this menu."
+            )
+            alert.addButtonWithTitle_("Engage")
+            alert.addButtonWithTitle_("Cancel")
+            if alert.runModal() == NSAlertFirstButtonReturn:
                 from datetime import datetime, timezone
                 from ...motor.factory import build_consent
-                build_consent().disengage_confirmed(
+                build_consent().engage_confirmed(
                     ts=datetime.now(timezone.utc).isoformat(), source="tray"
                 )
                 self._rebuild_menu()
-            except Exception:
-                from ...applog import log_exception
-                log_exception(action_id)
+        except Exception:
+            from ...applog import log_exception
+            log_exception("engage_l4")
 
-        elif action_id == "quit":
-            from AppKit import NSApp
-            NSApp.terminate_(None)
+    def disengage_l4(self) -> None:
+        try:
+            from datetime import datetime, timezone
+            from ...motor.factory import build_consent
+            build_consent().disengage_confirmed(
+                ts=datetime.now(timezone.utc).isoformat(), source="tray"
+            )
+            self._rebuild_menu()
+        except Exception:
+            from ...applog import log_exception
+            log_exception("disengage_l4")
+
+    def quit(self) -> None:
+        from AppKit import NSApp
+        NSApp.terminate_(None)
