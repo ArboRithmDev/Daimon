@@ -91,6 +91,16 @@ def test_subagent_prompt_tells_it_to_check_the_ceiling():
     assert "main_ceiling" in p
 
 
+# --- Task 6: a capable model MUST delegate multi-step driving --------------
+def test_protocol_makes_multistep_delegation_imperative():
+    txt = delegation_protocol_text()
+    low = txt.lower()
+    assert "must delegate" in low                                  # imperative for driving
+    assert "one-shot" in low or "single vue_snapshot" in low       # perception exemption
+    assert "inline" in low                                         # the no-subagent fallback stays
+    assert _BRANDS.search(txt) is None
+
+
 # --- Stream B: robustness against weak/hallucinating drivers ---------------
 def test_protocol_reframes_to_capability_not_smallest():
     txt = delegation_protocol_text().lower()

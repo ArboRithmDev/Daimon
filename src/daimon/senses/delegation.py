@@ -16,11 +16,14 @@ def delegation_protocol_text() -> str:
         "For multi-step tasks that drive an on-screen UI and extract text, first call "
         "vue_pilot_brief(objective, expected=<profile name if known>) to get a go/no-go "
         "gate plus a ready-to-paste sub-agent prompt.\n"
-        "- If you can spawn sub-agents: run the returned subagent_prompt on a model capable of "
-        "reliable multi-step tool-calling — NOT necessarily your smallest. A model that cannot "
-        "reliably chain tool calls will stall or hallucinate a CLI instead of calling the tools; "
-        "if your cheapest model does that, step up a tier. Keep its screenshots inside the "
-        "sub-agent and bubble up only the extracted text.\n"
+        "- If you can spawn sub-agents, you MUST delegate any multi-step UI-driving (a sequence "
+        "of main_* actions / perceive→act→extract steps) — do not drive it inline. Run the "
+        "returned subagent_prompt on a model capable of reliable multi-step tool-calling — NOT "
+        "necessarily your smallest. A model that cannot reliably chain tool calls will stall or "
+        "hallucinate a CLI instead of calling the tools; if your cheapest model does that, step "
+        "up a tier. Keep its screenshots inside the sub-agent and bubble up only the extracted "
+        "text. Exemption: a one-shot perception (a single vue_snapshot to describe the screen) "
+        "MAY stay inline.\n"
         "- If you cannot spawn sub-agents: run the same prompt inline with your current model.\n"
         "Always drive with space='image' + display=k (Daimon resolves pixels itself — never "
         "reason about coordinates); Daimon enforces the L0-L4 Hands ceiling and secret redaction "
@@ -105,9 +108,10 @@ def pilot_brief(profile_brief: dict, objective: str) -> dict:
         "gate": gate, "ready": True, "contract": contract,
         "subagent_prompt": _subagent_prompt(profile_name, indices, objective),
         "mode_hint": _MODE_HINT,
-        "next": ("Ready. If you can spawn a sub-agent, run subagent_prompt on a model capable of "
-                 "reliable multi-step tool-calling (not necessarily your smallest); otherwise run "
-                 "it inline."),
+        "next": ("Ready. This is a multi-step drive: if you can spawn a sub-agent you MUST "
+                 "delegate it — run subagent_prompt on a model capable of reliable multi-step "
+                 "tool-calling (not necessarily your smallest). Only run it inline if you cannot "
+                 "spawn one."),
     }
 
 
