@@ -1,7 +1,7 @@
-# Déléguer le pilotage Daimon à un petit modèle via profil (AXE 5)
+# Déléguer le pilotage Daimon à un petit modèle via profil (AXE 5/5b)
 
-> **But** : rendre la délégation Daimon viable. Un **orchestrateur** (gros modèle)
-> passe à un **sous-agent petit modèle rapide (Haiku)** uniquement un **nom de
+> **But** : rendre la délégation Daimon viable. Un **orchestrateur** (modèle capable)
+> passe à un **sous-agent petit modèle rapide capable** uniquement un **nom de
 > profil** + un **objectif**. Le sous-agent pilote l'UI **mécaniquement** (sans
 > aucun raisonnement géométrique) et ne renvoie que le **texte extrait**. Les
 > screenshots restent **hors du contexte de l'orchestrateur**.
@@ -9,7 +9,23 @@
 > **Capitalise sur** : AXE 1 (coords déterministes, `space="image"` + `vue_resolve`),
 > AXE 2 (profil persisté + auto-match par signature), AXE 3 (`vue_find` pour les
 > apps sans arbre a11y). Aucune nouvelle capacité backend — c'est un **pattern
-> d'orchestration** + un petit helper (`vue_profile_brief`).
+> d'orchestration** + un petit helper (`vue_profile_brief` / `vue_pilot_brief`).
+
+---
+
+## Mécanisme actif
+
+Le contrat de délégation est désormais **surfacé en direct par Daimon lui-même**. Les
+instructions MCP (`server-instructions`) portent le protocole d'orchestration agnostique,
+et l'outil `vue_pilot_brief(objective, expected?)` retourne le **gate** (vérification
+active du profil) + le **sub-agent prompt** prêt à l'emploi. Cette documentation est
+la **référence humaine** ; `vue_pilot_brief` est la **source de vérité machine**.
+
+Deux tiers de capacité subsistent :
+- **Tier 1** : tu peux lancer des sous-agents → délègue à le plus petit modèle capable
+  de ton runtime.
+- **Tier 2** : tu ne peux pas lancer de sous-agents → exécute le même prompt en ligne
+  avec ton modèle chargé.
 
 ---
 
@@ -37,7 +53,7 @@ Les axes 1→3 ont supprimé ce raisonnement :
 
 Conséquence : **cliquer juste ne demande plus de réflexion**. C'est devenu une
 suite d'appels d'outils déterministes — exactement le profil de tâche qu'on peut
-confier à un petit modèle rapide.
+confier à le plus petit modèle rapide capable.
 
 ---
 
@@ -63,8 +79,8 @@ le nom du profil (il l'a calibré une fois via `vue_calibrate`, ou l'a lu via
 | `note` | `str` | Court diagnostic en cas d'échec (profil non matché, libellé absent…). |
 
 Le sous-agent ne renvoie **jamais** d'image. Les screenshots restent dans **son**
-contexte (jetable), pas dans celui de l'orchestrateur. C'est le gain : le gros
-modèle ne paie ni les tokens d'image, ni les itérations de calibrage.
+contexte (jetable), pas dans celui de l'orchestrateur. C'est le gain : l'orchestrateur
+ne paie ni les tokens d'image, ni les itérations de calibrage.
 
 ---
 
@@ -102,7 +118,7 @@ matche par signature, et pose le drapeau `expected_ok`. Testé unitairement
 
 ## 4. La recette — prompt du sous-agent (gabarit)
 
-> Système / instructions du sous-agent Haiku. L'orchestrateur substitue
+> Système / instructions du sous-agent. L'orchestrateur substitue
 > `{{profile}}` et `{{objective}}`.
 
 ```
@@ -196,8 +212,8 @@ pas re-déboursé à chaque délégation.
 
 ## 6. Implémentation côté orchestrateur (n'importe quel client MCP)
 
-Le pattern est **agnostique du client**. Dans Claude Code, l'orchestrateur lance le
-sous-agent via le Task tool (sous-agent `general-purpose` ou dédié), en lui passant
+Le pattern est **agnostique du client**. L'orchestrateur lance le
+sous-agent via son mécanisme de Task (sous-agent `general-purpose` ou dédié), en lui passant
 le gabarit §4 avec `{{profile}}`/`{{objective}}` substitués, et **en restreignant ses
 outils** au strict nécessaire pour que la frontière de contexte tienne :
 
@@ -224,7 +240,7 @@ Points clés pour que la délégation tienne ses promesses :
 - **Plafond Mains inchangé.** La délégation ne relève AUCUN garde-fou : le plafond
   L0–L4 reste appliqué par Daimon, jamais par le sous-agent (cf. invariant 3). Un
   objectif qui exigerait une action au-dessus du plafond échoue côté Daimon,
-  comme pour le gros modèle.
+  comme pour l'orchestrateur.
 - **Sécurité inchangée.** La redaction secrets passe toujours devant toute capture,
   y compris derrière `vue_find` (l'OCR voit l'image **déjà** noircie).
 
@@ -232,8 +248,9 @@ Points clés pour que la délégation tienne ses promesses :
 
 ## 7. Critère de reproductibilité (DoD)
 
-Une recette reproductible où un petit modèle muni d'un profil **clique juste et
-extrait du texte sans raisonner sur la géométrie**. Concrètement, vérifié quand :
+Une recette reproductible où un petit modèle rapide capable, muni d'un profil,
+**clique juste et extrait du texte sans raisonner sur la géométrie**. Concrètement,
+vérifié quand :
 
 1. `vue_profile_brief(expected=<nom>)` renvoie `expected_ok=true` sur la machine
    cible (profil calibré au préalable). ✅ testé unitairement (helper pur +
@@ -246,8 +263,8 @@ extrait du texte sans raisonner sur la géométrie**. Concrètement, vérifié q
 
 ### À valider sur matériel réel (hors CI)
 
-- Un vrai run Haiku-as-subagent sur l'environnement `bureau-3-ecrans` (ou autre),
-  app sans a11y (WinDev), bout en bout : `vue_profile_brief` → `main_activate` →
+- Un vrai run sous-agent rapide capable sur l'environnement `bureau-3-ecrans` (ou autre),
+  app sans a11y (WinDev), bout en bout : `vue_pilot_brief` → `main_activate` →
   `vue_find` → `main_click` → extraction. Le calibrage doit déjà exister
   (`vue_calibrate`).
 - Confirmer que sur Windows `vue_find` (scaffold OCR parité — cf. AXE 3) est câblé
@@ -259,6 +276,7 @@ extrait du texte sans raisonner sur la géométrie**. Concrètement, vérifié q
 
 | Outil | Rôle dans la délégation |
 |-------|-------------------------|
+| `vue_pilot_brief(objective, expected)` | **Meta-gate** : renvoie le gate + prompt de sous-agent prêt. Source machine du protocole. (AXE 5b) |
 | `vue_profile_brief(expected)` | **Gate** : confirme le profil attendu = topologie réelle ; livre les index d'écran. (AXE 5) |
 | `vue_calibrate(name)` | Pré-requis hors délégation : gèle la topologie sous un nom. (AXE 2) |
 | `vue_find(text, display, source="profile")` | Localise un libellé visible → coords **déjà résolues**. (AXE 3+1) |
