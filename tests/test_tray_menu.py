@@ -70,3 +70,30 @@ def test_permission_labels_show_status():
     items = build_menu(_state(screen_ok=False, accessibility_ok=True))
     labels = [i.label for i in items if i.kind == "label"]
     assert any("Screen Recording" in l and ("⚪" in l or "missing" in l.lower() or "❌" in l) for l in labels)
+
+
+def _action_ids(items):
+    """Flatten all action_ids from items and their children."""
+    out = []
+    for it in items:
+        out.append(it.action_id)
+        out.extend(_action_ids(it.children))
+    return out
+
+
+def test_menu_offers_engage_l4_when_inactive():
+    items = build_menu(_state(l4_active=False))
+    ids = _action_ids(items)
+    assert "engage_l4" in ids and "disengage_l4" not in ids
+
+
+def test_menu_offers_disengage_l4_when_active():
+    items = build_menu(_state(l4_active=True))
+    ids = _action_ids(items)
+    assert "disengage_l4" in ids and "engage_l4" not in ids
+
+
+def test_ceiling_radios_stay_l0_to_l3():
+    ids = _action_ids(build_menu(_state(l4_active=False)))
+    assert "set_ceiling:AUTONOMOUS" not in ids
+    assert "set_ceiling:VALIDATION" in ids

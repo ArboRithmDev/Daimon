@@ -10,7 +10,7 @@ from ..motor.types import Level
 from .state import TrayState
 
 # Ceilings the menu may set — L4 (AUTONOMOUS) is intentionally excluded: it
-# requires written consent via the control CLI, never a menu click.
+# is reached only via an engage_l4 action with a confirmation dialog, never a radio.
 _SETTABLE_CEILINGS = (Level.READ, Level.NONDESTRUCTIVE, Level.INPUT, Level.VALIDATION)
 
 
@@ -72,6 +72,11 @@ def build_menu(state: TrayState) -> list[MenuItem]:
     ]
     if state.l4_active:
         items.append(MenuItem(kind="label", label="⚠️ L4 AUTONOMY ACTIVE", enabled=False))
+        items.append(MenuItem(kind="action", label="Disengage L4 autonomy",
+                              action_id="disengage_l4"))
+    else:
+        items.append(MenuItem(kind="action", label="Engage L4 autonomy…",
+                              action_id="engage_l4"))
     items += [
         MenuItem(kind="separator"),
         MenuItem(kind="action", label="Run setup…", action_id="run_setup"),
