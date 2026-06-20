@@ -1,0 +1,9 @@
+{
+  "name": "daimon-face",
+  "private": true,
+  "description": "Offline web bundle for Daimon's face surfaces (built with esbuild).",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

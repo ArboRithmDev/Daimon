@@ -39,3 +39,7 @@ config/overlay.yaml
 
 # OpenDesign working directory (generated artifacts, not Daimon source)
 design/
+
+# Daimon face web bundle build artifacts (rebuilt via build/make_face.py)
+src/daimon/face/web/node_modules/
+src/daimon/face/web/dist/

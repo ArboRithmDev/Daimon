@@ -1,0 +1,13 @@
+/* base.css — shared reset for the face surfaces. Transparent body so the native
+   vibrancy backing (NSVisualEffectView / acrylic) shows through behind the panel. */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: transparent; }
+body {
+  font-family: -apple-system, "SF Pro Text", BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+@keyframes daimonPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
