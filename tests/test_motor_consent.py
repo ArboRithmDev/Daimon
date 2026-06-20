@@ -58,6 +58,16 @@ def test_engage_confirmed_raises_ceiling_and_is_ledgered(tmp_path):
     assert m.current_ceiling() == Level.VALIDATION
 
 
+def test_disengage_confirmed_drops_ceiling_and_is_ledgered(tmp_path):
+    m = _manager(tmp_path, Level.VALIDATION)
+    m.engage_confirmed(ts="2026-06-20T10:00:00Z")
+    assert m.current_ceiling() == Level.AUTONOMOUS
+    assert m.disengage_confirmed(ts="2026-06-20T10:05:00Z") is True
+    assert m.current_ceiling() == Level.VALIDATION
+    last = m._ledger._records()[-1]
+    assert last["event"] == "disengage_l4" and last["method"] == "confirmed"
+
+
 def test_engaged_state_without_ledger_event_does_not_grant_l4(tmp_path):
     # Anti-forge: a state file flipped to engaged but no engage_l4 ledger event = still config.
     import json

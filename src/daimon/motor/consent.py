@@ -77,3 +77,13 @@ class ConsentManager:
         self._ledger.append({"event": "engage_l4", "ts": ts, "method": "confirmed", "source": source})
         self._state_path.write_text(json.dumps({"engaged": True, "ts": ts}), encoding="utf-8")
         return True
+
+    def disengage_confirmed(self, *, ts: str, source: str = "tray") -> bool:
+        """Disengage L4 from a human menu gesture (no typed phrase).
+
+        The human's explicit menu choice is the deliberate disengage gesture; recorded
+        immutably in the ledger, symmetric with engage_confirmed.
+        """
+        self._ledger.append({"event": "disengage_l4", "ts": ts, "method": "confirmed", "source": source})
+        self._state_path.write_text(json.dumps({"engaged": False, "ts": ts}), encoding="utf-8")
+        return True

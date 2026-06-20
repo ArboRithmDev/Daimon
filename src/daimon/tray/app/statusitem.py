@@ -266,6 +266,42 @@ class StatusItemController:
                 from ...applog import log_exception
                 log_exception(action_id)
 
+        elif action_id == "engage_l4":
+            try:
+                from AppKit import NSAlert, NSAlertFirstButtonReturn
+                from ...applog import log_exception
+                alert = NSAlert.alloc().init()
+                alert.setMessageText_("Engage L4 autonomy?")
+                alert.setInformativeText_(
+                    "Removes ALL per-action validation. Every action the AI requests will "
+                    "execute immediately, recorded in the immutable consent ledger. "
+                    "Disengage anytime from this menu."
+                )
+                alert.addButtonWithTitle_("Engage")
+                alert.addButtonWithTitle_("Cancel")
+                if alert.runModal() == NSAlertFirstButtonReturn:
+                    from datetime import datetime, timezone
+                    from ...motor.factory import build_consent
+                    build_consent().engage_confirmed(
+                        ts=datetime.now(timezone.utc).isoformat(), source="tray"
+                    )
+                    self._rebuild_menu()
+            except Exception:
+                from ...applog import log_exception
+                log_exception(action_id)
+
+        elif action_id == "disengage_l4":
+            try:
+                from datetime import datetime, timezone
+                from ...motor.factory import build_consent
+                build_consent().disengage_confirmed(
+                    ts=datetime.now(timezone.utc).isoformat(), source="tray"
+                )
+                self._rebuild_menu()
+            except Exception:
+                from ...applog import log_exception
+                log_exception(action_id)
+
         elif action_id == "quit":
             from AppKit import NSApp
             NSApp.terminate_(None)
