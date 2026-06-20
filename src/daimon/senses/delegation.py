@@ -24,3 +24,67 @@ def delegation_protocol_text() -> str:
         "reason about coordinates); Daimon enforces the L0-L4 Hands ceiling and secret redaction "
         "regardless. If the gate is not ready, calibrate first (vue_calibrate); do not drive blind."
     )
+
+
+_RULES = [
+    "Use space='image' + display=k from the brief; never reason about pixel geometry.",
+    "Keep screenshots in your own context; return only the extracted text.",
+    "Daimon enforces the L0-L4 Hands ceiling and secret redaction; never try to raise the ceiling.",
+]
+
+_MODE_HINT = "delegate_to_smallest_capable_subagent_else_run_inline"
+
+
+def _subagent_prompt(profile: str, indices: list[int], objective: str) -> str:
+    addr = ", ".join(f"display={i}" for i in indices)
+    return (
+        f"You are driving a UI through the Daimon MCP tools. Active calibration profile: "
+        f"'{profile}'. Addressable displays: {addr}.\n"
+        f"Objective: {objective}\n"
+        "How to act:\n"
+        "- Perceive with vue_snapshot(display=k) and read the labels. For apps with no "
+        "accessibility tree, call vue_find(text=...) to get a clickable target.\n"
+        "- Act with main_click/main_type using space='image' and the display index; Daimon "
+        "resolves pixels to global itself. Never compute or pass raw global coordinates.\n"
+        "- " + "\n- ".join(_RULES) + "\n"
+        "Return ONLY the text you were asked to extract, nothing else."
+    )
+
+
+def pilot_brief(profile_brief: dict, objective: str) -> dict:
+    """Build the per-task delegation packet from an active_profile_brief() result."""
+    objective = (objective or "").strip()
+    if not objective:
+        raise ValueError("pilot_brief needs a non-empty objective")
+    matched = bool(profile_brief.get("matched"))
+    expected_ok = bool(profile_brief.get("expected_ok"))
+    ready = matched and expected_ok
+    displays = profile_brief.get("displays") or []
+    profile_name = profile_brief.get("active_profile")
+    gate = {
+        "matched": matched,
+        "active_profile": profile_name,
+        "expected_ok": expected_ok,
+        "displays": displays,
+    }
+    contract = {
+        "input": {"profile": profile_name, "objective": objective},
+        "output": "extracted text only",
+        "rules": list(_RULES),
+    }
+    if not ready:
+        return {
+            "gate": gate, "ready": False, "contract": contract,
+            "subagent_prompt": "", "mode_hint": _MODE_HINT,
+            "next": ("Environment does not match the expected profile. Call "
+                     "vue_calibrate(name=...) to register/select the right profile first; "
+                     "do not drive blind."),
+        }
+    indices = [d["index"] for d in displays]
+    return {
+        "gate": gate, "ready": True, "contract": contract,
+        "subagent_prompt": _subagent_prompt(profile_name, indices, objective),
+        "mode_hint": _MODE_HINT,
+        "next": ("Ready. If you can spawn a sub-agent, run subagent_prompt on the smallest "
+                 "capable model; otherwise run it inline."),
+    }
