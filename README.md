@@ -14,7 +14,7 @@ enforces itself**.
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform: macOS 11+](https://img.shields.io/badge/platform-macOS%2011%2B-lightgrey.svg)](#install-macos)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](pyproject.toml)
-[![Protocol: MCP](https://img.shields.io/badge/protocol-MCP-27E0B0.svg)](https://modelcontextprotocol.io)
+[![Protocol: MCP](https://img.shields.io/badge/protocol-MCP-B66CFF.svg)](https://modelcontextprotocol.io)
 
 [Install](#install-macos) · [The triad](#the-triad) · [Security](#security-model) ·
 [Architecture](ARCHITECTURE.md) · [Tools](#tool-reference) · [Contributing](CONTRIBUTING.md)
@@ -114,8 +114,8 @@ To report a vulnerability privately, see the same file.
 
 1. Download `Daimon-<version>.dmg` from the [latest release](https://github.com/ArboRithmDev/Daimon/releases/latest).
 2. Open it and drag **Daimon** to **Applications**.
-3. Launch **Daimon** — the <img src="docs/assets/daimon-glyph.svg" width="14" height="14" alt="aperture" />
-   aperture glyph appears in the menu bar (no Dock icon). First run opens the
+3. Launch **Daimon** — the <img src="docs/assets/daimon-glyph.svg" width="14" height="14" alt="Daimon glyph" />
+   Duo glyph appears in the menu bar (no Dock icon). First run opens the
    onboarding window.
 4. **Register your AI clients** (one click) and **grant** Screen Recording +
    Accessibility when guided.

@@ -1,9 +1,10 @@
 """Generate the Daimon app icon set (PNGs) for packaging.
 
-Rasterizes the brand vector `build/assets/daimon-app-icon.svg` (the "aperture
-eye": a glassy midnight tile with a sentinel-mint iris) at every size macOS
-`iconutil` expects, into `build/generated-icons/app-<size>.png`. The build
-script then assembles the `.iconset` + `.icns`.
+Rasterizes the brand vector `build/assets/daimon-app-icon.svg` (the "Duo": a
+presence-purple lobe with its companion-amber lobe beside it, on an indigo
+midnight tile) at every size macOS `iconutil` expects, into
+`build/generated-icons/app-<size>.png`. The build script then assembles the
+`.iconset` + `.icns`.
 
 Primary path is `rsvg-convert` (Homebrew `librsvg`) — it renders the gradients
 and clip-paths faithfully. If it is absent, falls back to a sober PIL
@@ -24,9 +25,9 @@ _HERE = Path(__file__).resolve().parent
 _APP_SVG = _HERE / "assets" / "daimon-app-icon.svg"
 
 # Placeholder fallback palette (only used when rsvg-convert is unavailable).
-_BG = (24, 26, 32)
-_FG = (39, 224, 176)     # sentinel mint #27E0B0
-_RING = (58, 70, 88)
+_BG = (30, 38, 96)       # indigo tile #1e2660
+_FG = (182, 108, 255)    # presence purple #B66CFF
+_RING = (232, 178, 58)   # companion amber #E8B23A
 
 
 def _render_svg(svg: Path, size: int, out: Path) -> bool:
