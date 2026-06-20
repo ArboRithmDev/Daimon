@@ -71,3 +71,21 @@ def test_server_instructions_carry_the_protocol():
     assert "Daimon" in instr
     assert "vue_pilot_brief" in instr               # the delegation protocol is included
     assert not _BRANDS.search(instr)
+
+
+# Task 4: Hands ceiling awareness in delegation surfaces
+def test_server_instructions_mention_hands_ceiling():
+    instr = build_server_instructions()
+    assert "main_ceiling" in instr
+    assert "ceiling" in instr.lower()
+    assert not _BRANDS.search(instr)
+
+
+def test_subagent_prompt_tells_it_to_check_the_ceiling():
+    brief = {
+        "matched": True, "active_profile": "p", "signature": "s", "expected_ok": True,
+        "displays": [{"index": 0, "width": 100, "height": 100, "is_main": True,
+                      "origin_x": 0, "origin_y": 0, "dpi": 96}],
+    }
+    p = pilot_brief(brief, "read the total")["subagent_prompt"]
+    assert "main_ceiling" in p

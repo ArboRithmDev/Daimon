@@ -35,6 +35,17 @@ _RULES = [
 _MODE_HINT = "delegate_to_smallest_capable_subagent_else_run_inline"
 
 
+def hands_ceiling_note() -> str:
+    """Agnostic note: know your authorization envelope before acting."""
+    return (
+        "## Hands authorization ceiling\n"
+        "Daimon enforces a Hands ceiling (L0–L4). Call main_ceiling before driving to learn the "
+        "active ceiling and which tools are above it (gated_above). An action above the ceiling is "
+        "refused — declare up-front that you cannot do it rather than attempting and being refused "
+        "mid-flow. You never raise the ceiling; only the human does."
+    )
+
+
 def _subagent_prompt(profile: str, indices: list[int], objective: str) -> str:
     addr = ", ".join(f"display={i}" for i in indices)
     return (
@@ -42,6 +53,8 @@ def _subagent_prompt(profile: str, indices: list[int], objective: str) -> str:
         f"'{profile}'. Addressable displays: {addr}.\n"
         f"Objective: {objective}\n"
         "How to act:\n"
+        "- First call main_ceiling to learn your authorization envelope; do not attempt actions "
+        "listed in gated_above — report them as out of scope instead.\n"
         "- Perceive with vue_snapshot(display=k) and read the labels. For apps with no "
         "accessibility tree, call vue_find(text=...) to get a clickable target.\n"
         "- Act with main_click/main_type using space='image' and the display index; Daimon "
@@ -97,4 +110,6 @@ def build_server_instructions() -> str:
         "(vue_*), read the accessibility tree (touche_*), act with the Hands (main_*), and "
         "show overlays (overlay_*). It is pull-only and calls no AI itself.\n\n"
         + delegation_protocol_text()
+        + "\n\n"
+        + hands_ceiling_note()
     )
