@@ -105,18 +105,43 @@ class FakeFocusProbe:
 
 
 class MacOSFocusProbe:
-    """Real backend: reads the frontmost app via NSWorkspace."""
+    """Real backend: reads the frontmost app from the window server.
+
+    Deliberately NOT `NSWorkspace.frontmostApplication()`: that value is updated
+    by an AppKit notification delivered on the main run loop, so it never
+    refreshes while the motor organ blocks (time.sleep) waiting for an activation
+    to settle — the re-check polls a stale value forever and a successful
+    activation is misreported as "still not frontmost". The window server's
+    on-screen list reflects the real frontmost window within tens of ms, with no
+    run-loop dependency, so it matches what a synthetic click will actually hit.
+    """
 
     def frontmost(self) -> FocusState | None:
-        from AppKit import NSWorkspace
+        from AppKit import NSRunningApplication
+        from Quartz import (
+            CGWindowListCopyWindowInfo,
+            kCGWindowListOptionOnScreenOnly,
+            kCGWindowLayer,
+            kCGWindowOwnerPID,
+        )
 
-        app = NSWorkspace.sharedWorkspace().frontmostApplication()
-        if app is None:
+        infos = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, 0) or []
+        # The list is front-to-back; the first normal-app window (layer 0) belongs
+        # to the frontmost application (menu bar / system UI sit on other layers).
+        pid = None
+        for win in infos:
+            if win.get(kCGWindowLayer) == 0:
+                pid = win.get(kCGWindowOwnerPID)
+                break
+        if pid is None:
             return None
+        app = NSRunningApplication.runningApplicationWithProcessIdentifier_(int(pid))
+        if app is None:
+            return FocusState(pid=int(pid))
         return FocusState(
             bundle=app.bundleIdentifier(),
             title=app.localizedName(),
-            pid=int(app.processIdentifier()),
+            pid=int(pid),
         )
 
 
