@@ -35,3 +35,11 @@ def test_window_tools_are_registered():
     import asyncio
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     assert {"main_window_minimize", "main_window_hide", "main_window_show"} <= names
+
+
+def test_positional_tools_default_to_ensure_focus():
+    import asyncio
+    tools = {t.name: t for t in asyncio.run(build_server().list_tools())}
+    for name in ("main_click", "main_press", "main_drag"):
+        schema = tools[name].inputSchema
+        assert schema["properties"]["ensure_focus"].get("default") is True, name

@@ -116,8 +116,7 @@ def _register_motor(mcp) -> None:
             "(set max_width/region to match that snapshot) and Daimon resolves the "
             "global pixel itself — no manual offset/scale, negative displays handled. "
             "Pass window={bundle|title|pid} so Daimon checks the target is frontmost "
-            "(a click on a background window is a silent no-op); ensure_focus=True "
-            "activates it first instead of just warning."
+            "(ensure_focus on by default: activates a non-frontmost target window before clicking)."
         ),
     )
     def main_click(x: int, y: int, intent: str, reversible: bool = True,
@@ -126,7 +125,7 @@ def _register_motor(mcp) -> None:
                    space: str = "global", max_width: int = 720,
                    region: dict | None = None, window_bundle: str = "",
                    window_title: str = "", window_pid: int = 0,
-                   ensure_focus: bool = False) -> dict:
+                   ensure_focus: bool = True) -> dict:
         """Click an element or coordinate."""
         x, y = _resolve_point(x, y, display, space, max_width, region)
         params = {"x": x, "y": y, "button": button, "count": count,
@@ -157,7 +156,8 @@ def _register_motor(mcp) -> None:
         name="main_press",
         description=(
             "Activate an engaging button at (x,y) via the Accessibility API. "
-            "VALIDATION level — non-return targets require human confirmation."
+            "VALIDATION level — non-return targets require human confirmation. "
+            "ensure_focus on by default: activates a non-frontmost target window before pressing."
         ),
     )
     def main_press(x: int, y: int, intent: str, reversible: bool = False,
@@ -165,7 +165,7 @@ def _register_motor(mcp) -> None:
                    space: str = "global", max_width: int = 720,
                    region: dict | None = None, window_bundle: str = "",
                    window_title: str = "", window_pid: int = 0,
-                   ensure_focus: bool = False) -> dict:
+                   ensure_focus: bool = True) -> dict:
         """Activate a button via the Accessibility API."""
         x, y = _resolve_point(x, y, display, space, max_width, region)
         params = {"x": x, "y": y}
@@ -273,13 +273,14 @@ def _register_motor(mcp) -> None:
 
     @mcp.tool(name="main_drag", description=(
         "Drag from (from_x,from_y) to (to_x,to_y). The drop destination is "
-        "classified for reversibility (e.g. dropping on Trash gates)."))
+        "classified for reversibility (e.g. dropping on Trash gates). "
+        "ensure_focus on by default: activates a non-frontmost target window before dragging."))
     def main_drag(from_x: int, from_y: int, to_x: int, to_y: int, intent: str,
                   button: str = "left", reversible: bool = True,
                   display: int | None = None, space: str = "global",
                   max_width: int = 720, region: dict | None = None,
                   window_bundle: str = "", window_title: str = "",
-                  window_pid: int = 0, ensure_focus: bool = False) -> dict:
+                  window_pid: int = 0, ensure_focus: bool = True) -> dict:
         """Drag from one point to another."""
         from_x, from_y = _resolve_point(from_x, from_y, display, space, max_width, region)
         to_x, to_y = _resolve_point(to_x, to_y, display, space, max_width, region)
