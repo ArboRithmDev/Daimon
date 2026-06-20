@@ -161,3 +161,64 @@ def test_ensure_focus_marks_focus_after_activation(tmp_path):
     out = organ.act(_click(window={"bundle": "com.acme.editor"}, ensure_focus=True))
     assert out.get("focused") is True
     assert "focus_warning" not in out
+
+
+# --- organ: three-state focus result (T5) -----------------------------------
+# A single `focus` key names the outcome so a pilot can branch on it without
+# parsing warnings. It appears only when a window target makes focus relevant.
+
+def test_focus_state_absent_when_focus_irrelevant(tmp_path):
+    # No declared window, and no probe at all — focus is not applicable, so the
+    # result carries no `focus` key (back-compat: the dict is otherwise unchanged).
+    focus = FakeFocusProbe(state=FocusState(bundle="com.other", title="Other", pid=1))
+    organ = _organ(tmp_path, focus=focus)
+    out = organ.act(_click())  # no window declared
+    assert "focus" not in out
+
+    guard = PolicyGuard(ExclusionFilter(ExclusionConfig()), ceiling_provider=lambda: Level.INPUT)
+    organ_no_probe = MotorOrgan(
+        guard=guard, gate=FakeGate(answer=True), actuator=FakeActuator(),
+        session_log=AppendOnlyLedger(tmp_path / "s.jsonl"), clock=lambda: "T",
+        prober=FakeProber(target=Target(observed=True)),
+    )
+    out = organ_no_probe.act(_click(window={"bundle": "com.acme.editor"}))
+    assert "focus" not in out
+
+
+def test_focus_state_already_frontmost(tmp_path):
+    # Window targeted and already frontmost → positive confirmation, no warning.
+    focus = FakeFocusProbe(state=FocusState(bundle="com.acme.editor", title="Editor", pid=42))
+    organ = _organ(tmp_path, focus=focus)
+    out = organ.act(_click(window={"bundle": "com.acme.editor"}))
+    assert out["focus"] == "already_frontmost"
+    assert "focus_warning" not in out
+
+
+def test_focus_state_not_attempted(tmp_path):
+    # Not frontmost and ensure_focus off → no activation tried; explicitly flagged.
+    focus = FakeFocusProbe(state=FocusState(bundle="com.other", title="Other", pid=1))
+    organ = _organ(tmp_path, focus=focus)
+    out = organ.act(_click(window={"bundle": "com.acme.editor"}))
+    assert out["focus"] == "not_attempted"
+    assert out.get("focus_warning") is True
+
+
+def test_focus_state_activated_and_frontmost(tmp_path):
+    # ensure_focus brings it forward and the activation takes effect.
+    focus = FakeFocusProbe(state=FocusState(bundle="com.other", title="Other", pid=1),
+                           activates=True)
+    organ = _organ(tmp_path, focus=focus)
+    out = organ.act(_click(window={"bundle": "com.acme.editor"}, ensure_focus=True))
+    assert out["focus"] == "activated_and_frontmost"
+    assert out.get("focused") is True
+    assert "focus_warning" not in out
+
+
+def test_focus_state_activated_but_not_frontmost(tmp_path):
+    # ensure_focus issued an activate but the window never came forward.
+    focus = FakeFocusProbe(state=FocusState(bundle="com.other", title="Other", pid=1))
+    organ = _organ(tmp_path, focus=focus)
+    out = organ.act(_click(window={"bundle": "com.acme.editor"}, ensure_focus=True))
+    assert out["focus"] == "activated_but_not_frontmost"
+    assert out.get("focused") is True
+    assert out.get("focus_warning") is True

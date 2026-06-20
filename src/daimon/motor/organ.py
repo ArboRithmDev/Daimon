@@ -110,11 +110,19 @@ class MotorOrgan:
     def _handle_focus(self, action: MotorAction) -> dict:
         """Make focus observable before a positional gesture (F3).
 
-        When the action declares a target `window`, compare it against the
-        frontmost app. If the window isn't frontmost: with `ensure_focus`,
-        activate it first (re-checking the effect); otherwise attach an explicit
-        warning so a no-effect gesture never reads as success. No focus probe,
-        or no declared window, leaves behaviour unchanged.
+        When the action declares a target ``window``, name the focus outcome
+        under a ``focus`` key so a no-effect gesture never reads as success and
+        a pilot can branch on the state instead of parsing warnings:
+
+        - ``already_frontmost`` — the window was frontmost; nothing to do.
+        - ``not_attempted`` — the window was not frontmost and ``ensure_focus``
+          was off, so no activation was tried (carries a focus warning).
+        - ``activated_and_frontmost`` — ``ensure_focus`` brought it forward.
+        - ``activated_but_not_frontmost`` — an activate was issued but the
+          window still did not come forward (carries a focus warning).
+
+        No focus probe, a non-positional action, or no declared window leaves
+        the result unchanged (no ``focus`` key) — focus is not applicable here.
         """
         if self._focus is None or action.name not in _FOCUS_SENSITIVE:
             return {}
@@ -122,15 +130,15 @@ class MotorOrgan:
         if not window:
             return {}
         if window_is_frontmost(self._focus.frontmost(), window):
-            return {}
+            return {"focus": "already_frontmost"}
         if not action.params.get("ensure_focus"):
-            return {"focus_warning": True,
+            return {"focus": "not_attempted", "focus_warning": True,
                     "focus_detail": "target window is not frontmost; the gesture may have no effect"}
         # ensure_focus: bring the target window forward, then re-check.
         self._activate_window(window)
         if window_is_frontmost(self._focus.frontmost(), window):
-            return {"focused": True}
-        return {"focused": True, "focus_warning": True,
+            return {"focus": "activated_and_frontmost", "focused": True}
+        return {"focus": "activated_but_not_frontmost", "focused": True, "focus_warning": True,
                 "focus_detail": "activated the target window but it is still not frontmost"}
 
     def _activate_window(self, window: dict) -> None:
