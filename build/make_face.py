@@ -45,13 +45,19 @@ def _esbuild(entry: Path, outfile: Path) -> None:
     )
 
 
-def main() -> int:
-    if shutil.which("npx") is None:
-        print("ERROR: npx (Node.js) is required to build the face bundle.", file=sys.stderr)
-        return 2
+def _ensure_deps() -> bool:
+    """Vendor React into web/node_modules if missing. Returns False if Node absent."""
+    if shutil.which("npm") is None or shutil.which("npx") is None:
+        print("ERROR: Node.js (npm/npx) is required to build the face bundle.", file=sys.stderr)
+        return False
     if not (WEB / "node_modules" / "react").exists():
-        print("ERROR: run `cd src/daimon/face/web && npm install` first (vendors React).",
-              file=sys.stderr)
+        print("==> Vendoring face web deps (npm install)…")
+        subprocess.run(["npm", "install", "--no-audit", "--no-fund"], check=True, cwd=WEB)
+    return True
+
+
+def main() -> int:
+    if not _ensure_deps():
         return 2
 
     base_css = (SRC / "base.css").read_text() if (SRC / "base.css").exists() else ""

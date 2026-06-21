@@ -91,6 +91,12 @@ printf '"""Version stamped by the build from pyproject.toml. Do not edit/commit.
     "$VERSION" > "$REPO_ROOT/src/daimon/_version.py"
 echo "==> Stamped src/daimon/_version.py = $VERSION"
 
+# 2.7 Face web bundle. Builds the offline UI (HTML/JS/CSS) the webviews load and
+#     that daimon.spec ships into the .app. Auto-vendors React via npm. Node is
+#     build-only; users get the pre-built dist. A release MUST carry the bundle.
+echo "==> Building the face web bundle (npm + esbuild)…"
+python "$BUILD_DIR/make_face.py"
+
 # 3. PyInstaller → Daimon.app.
 (
     cd "$REPO_ROOT"

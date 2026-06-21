@@ -68,3 +68,17 @@ def test_push_state_dispatches_state_event_to_open_windows():
 def test_push_state_is_noop_when_no_window_open():
     host = FaceHost(_FakeBridge(), webview_module=_FakeWebview())
     host.push_state()  # must not raise
+
+
+def test_dist_dir_resolves_frozen_meipass(monkeypatch, tmp_path):
+    from daimon.face import host
+    monkeypatch.setattr(host.sys, "_MEIPASS", str(tmp_path), raising=False)
+    d = host._dist_dir()
+    assert d == tmp_path / "daimon" / "face" / "web" / "dist"
+
+
+def test_dist_dir_resolves_source_when_not_frozen(monkeypatch):
+    from daimon.face import host
+    monkeypatch.delattr(host.sys, "_MEIPASS", raising=False)
+    d = host._dist_dir()
+    assert d.name == "dist" and d.parent.name == "web"

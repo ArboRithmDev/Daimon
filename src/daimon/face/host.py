@@ -9,14 +9,25 @@ validated on a real machine, not headless.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-_DIST = Path(__file__).resolve().parent / "web" / "dist"
+
+def _dist_dir() -> Path:
+    """Locate the built web bundle, in source AND in a PyInstaller-frozen app.
+
+    Frozen: data files added by daimon.spec land under sys._MEIPASS at
+    daimon/face/web/dist. Source: it sits next to this module.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if base is not None:
+        return Path(base) / "daimon" / "face" / "web" / "dist"
+    return Path(__file__).resolve().parent / "web" / "dist"
 
 
 def _surface_url(surface: str) -> str:
     """file:// URL of a built surface's index.html."""
-    return (_DIST / surface / "index.html").as_uri()
+    return (_dist_dir() / surface / "index.html").as_uri()
 
 
 class FaceHost:

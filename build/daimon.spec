@@ -52,6 +52,7 @@ for pkg in (
     "mcp",
     "PIL",
     "yaml",
+    "webview",  # pywebview — the face UI layer (system WKWebView backend + data)
     "daimon",
 ):
     try:
@@ -70,7 +71,18 @@ if _assets.is_dir():
     for _png in _assets.glob("*.png"):
         collected_datas.append((str(_png), "daimon/assets"))
 
+# Face web bundle — the built offline UI (HTML/JS/CSS) the webviews load. Built by
+# build/make_face.py before PyInstaller; ship dist/ so the frozen app is
+# self-contained (node/React are build-only, never shipped). Resolved at runtime
+# via face.host._dist_dir() (sys._MEIPASS when frozen).
+_dist = src_root / "daimon" / "face" / "web" / "dist"
+if _dist.is_dir():
+    for _f in _dist.rglob("*"):
+        if _f.is_file():
+            collected_datas.append((str(_f), str(Path("daimon/face/web/dist") / _f.relative_to(_dist).parent)))
+
 hidden_imports.extend(collect_submodules("daimon"))
+hidden_imports.extend(collect_submodules("webview"))  # pywebview lazy platform backends
 # Explicit pyobjc bridges PyInstaller sometimes misses.
 hidden_imports.extend([
     "objc", "Quartz", "AppKit", "Foundation", "CoreFoundation",
