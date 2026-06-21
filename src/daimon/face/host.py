@@ -108,12 +108,22 @@ class FaceHost:
         self._on_shown(win, _native)
         return win
 
+    ONBOARDING_W = 460
+    ONBOARDING_H = 640
+
     def open_onboarding(self):
-        """First-run window — a normal frameless window."""
+        """First-run window — frameless, frosted, fixed-size; closes itself via the
+        bridge ('Finish')."""
         win = self._webview().create_window(
-            "Welcome to Daimon", _surface_url("onboarding"), js_api=self._bridge, frameless=True,
+            "Welcome to Daimon", _surface_url("onboarding"), js_api=self._bridge,
+            frameless=True, transparent=True, resizable=False,
+            width=self.ONBOARDING_W, height=self.ONBOARDING_H,
         )
         self._windows["onboarding"] = win
+        closer = getattr(self._bridge, "set_closer", None)
+        if closer is not None:
+            closer(lambda: win.destroy())
+        self._on_shown(win, lambda: self._adapter.apply_vibrancy(win, dark=True, radius=24))
         return win
 
     def push_state(self) -> None:

@@ -73,3 +73,14 @@ def test_router_rejects_unknown_ceiling():
     rec = _Rec()
     res = ActionRouter(rec).dispatch("set_ceiling:GODMODE")
     assert res.ok is False and rec.calls == []
+
+
+def test_router_dispatches_onboarding_permission_actions():
+    rec = _Rec()
+    # extend the recorder with the new handlers on the fly
+    for name in ("grant_screen", "grant_accessibility", "settings_screen", "settings_accessibility"):
+        setattr(rec, name, (lambda n=name: rec.calls.append((n,))))
+    r = ActionRouter(rec)
+    for name in ("grant_screen", "grant_accessibility", "settings_screen", "settings_accessibility"):
+        assert r.dispatch(name).ok
+        assert (name,) in rec.calls

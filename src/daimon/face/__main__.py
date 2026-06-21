@@ -98,6 +98,8 @@ def main() -> int:
     host = FaceHost(bridge, webview_module=webview)
     if "--overlay" in sys.argv:
         host.open_overlay()   # the on-screen companion face (transparent, click-through)
+    elif "--onboarding" in sys.argv:
+        host.open_onboarding()
     else:
         host.open_panel()
     # http_server: serve the bundle over http://127.0.0.1 so CSP 'self' permits it.

@@ -88,3 +88,11 @@ def test_resize_to_calls_injected_resizer():
 def test_resize_to_noop_without_resizer():
     b, _ = _bridge()
     assert b.resize_to(340, 700) == {"ok": True}  # must not raise
+
+
+def test_close_window_calls_injected_closer():
+    b, _ = _bridge()
+    closed = []
+    b.set_closer(lambda: closed.append(1))
+    assert b.close_window() == {"ok": True}
+    assert closed == [1]

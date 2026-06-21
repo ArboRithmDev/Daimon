@@ -119,3 +119,23 @@ class TrayActions:
 
     def quit(self) -> None:
         self._quit()
+
+    # --- Onboarding permission gestures -------------------------------------
+
+    def grant_screen(self) -> None:
+        from ..setup.permissions import MacOSBackend
+        MacOSBackend().request_screen_recording()
+        self._changed()
+
+    def grant_accessibility(self) -> None:
+        from ..setup.permissions import MacOSBackend
+        MacOSBackend().request_accessibility()
+        self._changed()
+
+    def settings_screen(self) -> None:
+        from ..setup.permissions import MacOSBackend, PANE_SCREEN
+        MacOSBackend().open_pane(PANE_SCREEN)
+
+    def settings_accessibility(self) -> None:
+        from ..setup.permissions import MacOSBackend, PANE_ACCESSIBILITY
+        MacOSBackend().open_pane(PANE_ACCESSIBILITY)

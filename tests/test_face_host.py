@@ -122,3 +122,13 @@ def test_open_overlay_applies_capture_exclusion_and_click_through():
     assert ("exclude",) in adapter.calls      # never in a screenshot (doctrine)
     assert ("click_through",) in adapter.calls
     assert ("fit",) in adapter.calls
+
+
+def test_open_onboarding_applies_vibrancy_and_wires_closer():
+    fw = _FakeWebview()
+    adapter = _FakeAdapter()
+    host = FaceHost(_FakeBridge(), webview_module=fw, adapter=adapter)
+    host.open_onboarding()
+    assert ("vibrancy", True) in adapter.calls
+    w = fw.created[-1]
+    assert w["kw"].get("transparent") is True
