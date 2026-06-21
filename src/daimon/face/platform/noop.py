@@ -6,6 +6,9 @@ from __future__ import annotations
 
 
 class NoopFaceAdapter:
+    def run_on_main(self, fn) -> None:
+        fn()
+
     def apply_vibrancy(self, window, *, dark: bool = True, radius: int = 20) -> None:
         pass
 

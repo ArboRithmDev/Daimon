@@ -52,10 +52,13 @@ class FaceHost:
 
     def _on_shown(self, win, fn) -> None:
         """Run a native tweak once the window exists (its NSWindow handle is set
-        on the 'shown' event). Guarded for fake webview windows without events."""
+        on the 'shown' event). The event fires on a background thread, but NSWindow
+        management must run on the main thread — marshal via the adapter. Guarded
+        for fake webview windows without events."""
+        runner = getattr(self._adapter, "run_on_main", lambda f: f())
         events = getattr(win, "events", None)
         if events is not None and hasattr(events, "shown"):
-            events.shown += fn
+            events.shown += (lambda: runner(fn))
         else:
             fn()  # no event system (tests) — call directly
 

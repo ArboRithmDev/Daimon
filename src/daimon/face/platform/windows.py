@@ -13,6 +13,9 @@ from __future__ import annotations
 
 
 class WindowsFaceAdapter:
+    def run_on_main(self, fn) -> None:  # pragma: no cover - Windows
+        fn()
+
     def apply_vibrancy(self, window, *, dark: bool = True, radius: int = 20) -> None:  # pragma: no cover - Windows
         pass
 

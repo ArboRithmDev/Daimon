@@ -15,6 +15,13 @@ def _nswindow(window):
 
 
 class MacOSFaceAdapter:
+    def run_on_main(self, fn) -> None:
+        """Schedule fn on the AppKit main thread. pywebview fires window events on
+        a background thread, but NSWindow management (setFrame/setLevel/…) asserts
+        main-thread — calling off-main is a hard SIGTRAP crash."""
+        from PyObjCTools import AppHelper
+        AppHelper.callAfter(fn)
+
     def apply_vibrancy(self, window, *, dark: bool = True, radius: int = 20) -> None:
         """Put a rounded NSVisualEffectView behind the (transparent) web content
         so the panel reads as a frosted, floating macOS surface."""
