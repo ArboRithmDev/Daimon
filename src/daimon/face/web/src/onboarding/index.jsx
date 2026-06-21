@@ -92,12 +92,14 @@ function App() {
     {
       title: "AI Clients",
       body: (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
           <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
             <p style={{ fontSize: 13, color: C.sub, margin: 0, flex: 1 }}>Register Daimon into your AI tools.</p>
             <Btn kind="soft" onClick={() => act("install_all")}>Register all</Btn>
           </div>
-          <div className="daimon-scroll" style={{ maxHeight: 232, overflowY: "auto" }}>
+          {/* Onboarding has room — the list fills down to the footer (unlike the
+              compact, capped menu panel). */}
+          <div className="daimon-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {clients.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "8px 0" }}>No AI clients detected.</div>}
             {clients.map(cl => (
               <div key={cl.name} style={{ display: "flex", alignItems: "center", padding: "7px 2px" }}>
@@ -140,7 +142,7 @@ function App() {
         ))}
       </div>
       <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: C.faint }}>{steps[step].title}</h2>
-      <div style={{ flex: 1 }}>{steps[step].body}</div>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{steps[step].body}</div>
       <div style={{ display: "flex", alignItems: "center", marginTop: 18, gap: 10 }}>
         {step > 0 ? <Btn kind="ghost" onClick={() => setStep(step - 1)}>Back</Btn> : <span />}
         <span style={{ flex: 1 }} />
