@@ -36,6 +36,7 @@ def gather() -> TrayState:
     """
     from .. import __version__
     from ..config import load_motor_config, load_overlay_config
+    from ..motor.factory import build_consent
     from ..setup.clients.base import status as client_status
     from ..setup.clients.registry import default_adapters, detected
     from ..setup.permissions import read_status
@@ -47,12 +48,14 @@ def gather() -> TrayState:
         ClientStatus(a.name, client_status(a, "daimon").action == "present")
         for a in detected(default_adapters())
     )
+    # L4 is engaged iff the consent ledger + state agree (current_ceiling == AUTONOMOUS).
+    l4_active = build_consent().current_ceiling() == Level.AUTONOMOUS
     return TrayState(
         version=__version__,
         screen_ok=bool(perms.get("screen_recording")),
         accessibility_ok=bool(perms.get("accessibility")),
         clients=clients,
         ceiling=motor.ceiling,
-        l4_active=False,  # L4 is runtime/consent-gated; shown read-only if engaged
+        l4_active=l4_active,
         overlay_on=overlay.enabled,
     )
