@@ -240,3 +240,15 @@ def test_ensure_focus_settles_via_retry_after_async_activation(tmp_path):
     assert out.get("focused") is True
     assert "focus_warning" not in out
     assert sleeps, "the organ must wait between frontmost re-checks (settle)"
+
+
+def test_windows_focus_probe_reads_foreground():
+    # Windows-only smoke: the real probe returns either None (no foreground
+    # window) or a state carrying a pid — never the old NotImplementedError.
+    import sys
+    if sys.platform != "win32":
+        import pytest
+        pytest.skip("Windows focus probe runtime")
+    from daimon.motor.focus import WindowsFocusProbe
+    fs = WindowsFocusProbe().frontmost()
+    assert fs is None or fs.pid is not None

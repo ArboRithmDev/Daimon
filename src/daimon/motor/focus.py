@@ -146,17 +146,43 @@ class MacOSFocusProbe:
 
 
 class WindowsFocusProbe:
-    """Parity scaffold: read the foreground window's app on Windows.
+    """Real backend: read the foreground window's app on Windows.
 
-    TODO(windows): implement with GetForegroundWindow + GetWindowThreadProcessId
-    to obtain the pid, then resolve the process image name / window title. The
-    seam (FocusProbe protocol + FocusState) and the OS-agnostic matcher
-    (window_is_frontmost) are already shared with the macOS twin, so wiring this
-    closes F3 on Windows without touching the organ.
+    GetForegroundWindow returns the live foreground window with no run-loop
+    dependency (the Windows twin of the macOS window-server probe — and for the
+    same reason: it reflects what a synthetic click will actually hit). The pid
+    comes from GetWindowThreadProcessId; `bundle` is the process image path (the
+    Windows analogue of a macOS bundle id, matching screen_win.frontmost_bundle_id),
+    `title` is the window text. The OS-agnostic matcher (window_is_frontmost) and
+    the organ are unchanged.
     """
 
     def frontmost(self) -> FocusState | None:  # pragma: no cover - Windows runtime
-        raise NotImplementedError(
-            "WindowsFocusProbe.frontmost requires the Win32 runtime "
-            "(GetForegroundWindow / GetWindowThreadProcessId)."
-        )
+        import win32gui
+        import win32process
+
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            return None
+        title = win32gui.GetWindowText(hwnd) or None
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        except Exception:
+            return FocusState(title=title)
+        if not pid:
+            return FocusState(title=title)
+
+        image = None
+        try:
+            import win32api
+            import win32con
+            h = win32api.OpenProcess(
+                win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+            try:
+                image = win32process.GetModuleFileNameEx(h, 0)
+            finally:
+                win32api.CloseHandle(h)
+        except Exception:
+            pass
+
+        return FocusState(bundle=image, title=title, pid=int(pid))
