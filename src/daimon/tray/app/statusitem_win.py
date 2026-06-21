@@ -61,6 +61,18 @@ class WindowsTrayController:
         from PySide6 import QtGui
 
         assets = Path(__file__).resolve().parents[2] / "assets"
+
+        # Preferred: the COLOURED Duo glyph. The macOS menu-bar PNGs are a black
+        # template tinted by the OS; on the Windows tray (often a dark surface)
+        # that black glyph is near-invisible, so we render the brand SVG in its
+        # real presence-purple + companion-amber colours — readable on a light
+        # or dark tray alike.
+        duo = assets / "tray-glyph-duo.svg"
+        if duo.exists():
+            icon = self._svg_icon(duo)
+            if icon is not None:
+                return icon
+
         for name in ("menubar-glyph@2x.png", "menubar-glyph.png"):
             p = assets / name
             if p.exists():
@@ -75,6 +87,30 @@ class WindowsTrayController:
         painter.drawEllipse(2, 2, 14, 14)
         painter.end()
         return QtGui.QIcon(pm)
+
+    @staticmethod
+    def _svg_icon(svg_path):
+        """Rasterize a brand SVG into a multi-size QIcon. None if QtSvg is absent
+        or the render fails (caller falls back to the PNG glyph)."""
+        try:
+            from PySide6 import QtGui
+            from PySide6.QtCore import Qt
+            from PySide6.QtSvg import QSvgRenderer
+
+            renderer = QSvgRenderer(str(svg_path))
+            if not renderer.isValid():
+                return None
+            icon = QtGui.QIcon()
+            for size in (16, 20, 24, 32, 48, 64):
+                pm = QtGui.QPixmap(size, size)
+                pm.fill(Qt.transparent)
+                painter = QtGui.QPainter(pm)
+                renderer.render(painter)
+                painter.end()
+                icon.addPixmap(pm)
+            return icon if not icon.isNull() else None
+        except Exception:
+            return None
 
     def _refresh(self) -> None:
         """Repopulate the persistent menu with fresh state (called on open)."""

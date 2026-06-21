@@ -39,3 +39,34 @@ def test_tray_menu_builds_from_pure_model():
     assert any(t.startswith("Clients (") for t in texts)        # clients submenu
     assert any("Show overlay" in t for t in texts)
     del app  # keep the QApplication alive until here
+
+
+def test_tray_icon_is_the_coloured_duo_glyph():
+    # On the Windows tray the brand must render in its real presence-purple +
+    # companion-amber colours — the macOS black template glyph is near-invisible
+    # on a dark notification area.
+    from pathlib import Path
+
+    from PySide6 import QtWidgets
+
+    import daimon
+    from daimon.tray.app.statusitem_win import WindowsTrayController
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    duo = Path(daimon.__file__).resolve().parent / "assets" / "tray-glyph-duo.svg"
+    assert duo.exists(), "the coloured Duo tray glyph must ship"
+
+    icon = WindowsTrayController._svg_icon(duo)
+    assert icon is not None and not icon.isNull()
+
+    img = icon.pixmap(64, 64).toImage()
+    coloured = sum(
+        1
+        for y in range(img.height())
+        for x in range(img.width())
+        if (c := img.pixelColor(x, y)).alpha() > 0
+        and (c.red() + c.green() + c.blue()) > 180
+    )
+    assert coloured > 100, "the lobes must render in colour, not black"
+    del app

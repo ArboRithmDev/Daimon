@@ -49,6 +49,23 @@ if ($running) {
     Start-Sleep -Milliseconds 600
 }
 
+# 0.5 Brand assets ----------------------------------------------------------
+# The exe/installer icon (Daimon.ico) and the face web bundle the webviews load
+# are generated here (not committed) so the build is their single source of
+# truth. Both are best-effort: a machine without QtSvg/Node still produces a
+# working exe (iconless / faceless) rather than failing the whole build.
+Write-Host "Generating brand icon (Daimon.ico)..." -ForegroundColor Cyan
+& $Python build\make_icon.py --ico build\generated-icons\Daimon.ico
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: icon generation failed; exe ships without a branded icon." -ForegroundColor Yellow
+}
+
+Write-Host "Building face web bundle (npm + esbuild)..." -ForegroundColor Cyan
+& $Python build\make_face.py
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: face bundle build failed; face surfaces unavailable." -ForegroundColor Yellow
+}
+
 # 1. PyInstaller ------------------------------------------------------------
 # --clean for release (cold) builds; -Fast skips it to reuse the cache (dev).
 $piArgs = @("build\windows\daimon_win.spec", "--noconfirm")

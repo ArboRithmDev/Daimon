@@ -52,6 +52,12 @@ for pkg in (
     "mcp",
     "PIL",
     "yaml",
+    # Face UI layer (pywebview EdgeChromium/WebView2). collect_all is guarded, so
+    # a machine without these still builds a faceless-but-working exe.
+    "webview",       # pywebview
+    "clr_loader",    # pythonnet's CLR bootstrap
+    "pythonnet",     # WinForms + WebView2 host via the CLR
+    "bottle",        # pywebview's http_server (serves the bundle over 127.0.0.1)
     "daimon",
 ):
     try:
@@ -75,12 +81,28 @@ _QT_EXCLUDES = [
     "PySide6.QtDesigner", "PySide6.QtHelp", "PySide6.QtUiTools",
 ]
 
-# Brand assets — the tray glyph loaded by the status item.
+# Brand assets — the tray glyph loaded by the status item. Ship the COLOURED
+# Duo .svg (Windows tray, rendered via QtSvg) alongside the macOS template PNGs.
 _assets = src_root / "daimon" / "assets"
 if _assets.is_dir():
-    for _png in _assets.glob("*.png"):
-        collected_datas.append((str(_png), "daimon/assets"))
+    for _pat in ("*.png", "*.svg"):
+        for _f in _assets.glob(_pat):
+            collected_datas.append((str(_f), "daimon/assets"))
 
+# Face web bundle — the built offline UI (HTML/JS/CSS) the webviews load. Built
+# by build/make_face.py before PyInstaller; ship dist/ so the frozen app serves
+# it via face.host._dist_dir() (sys._MEIPASS when frozen). Harmless static files
+# even before pywebview is wired as a Windows dependency.
+_face_dist = src_root / "daimon" / "face" / "web" / "dist"
+if _face_dist.is_dir():
+    for _f in _face_dist.rglob("*"):
+        if _f.is_file():
+            _rel = Path("daimon/face/web/dist") / _f.relative_to(_face_dist).parent
+            collected_datas.append((str(_f), str(_rel)))
+
+# QtSvg is imported lazily (tray glyph + icon render); pin it so the PySide6 hook
+# can't drop it from a static-analysis miss.
+hidden_imports.append("PySide6.QtSvg")
 hidden_imports.extend(collect_submodules("daimon"))
 
 a = Analysis(

@@ -38,11 +38,19 @@ _HTML = """<!DOCTYPE html>
 """
 
 
+def _tool(name: str) -> str | None:
+    """Resolve a Node CLI to its real path. On Windows npm/npx are `npm.cmd` /
+    `npx.cmd`; subprocess (no shell) can't find the bare name, so call the path
+    `shutil.which` returns (with the .cmd extension) rather than the literal."""
+    return shutil.which(name)
+
+
 def _esbuild(entry: Path, outfile: Path) -> None:
     # Production build: NODE_ENV=production strips React's dev warnings (and the
     # reactjs.org doc URLs they embed); --minify shrinks the offline bundle.
+    npx = _tool("npx")
     subprocess.run(
-        ["npx", "--yes", "esbuild", str(entry), "--bundle", "--format=iife",
+        [npx, "--yes", "esbuild", str(entry), "--bundle", "--format=iife",
          "--jsx=automatic", "--minify", "--define:process.env.NODE_ENV=\"production\"",
          f"--outfile={outfile}"],
         check=True, cwd=WEB,
@@ -51,12 +59,13 @@ def _esbuild(entry: Path, outfile: Path) -> None:
 
 def _ensure_deps() -> bool:
     """Vendor React into web/node_modules if missing. Returns False if Node absent."""
-    if shutil.which("npm") is None or shutil.which("npx") is None:
+    npm = _tool("npm")
+    if npm is None or _tool("npx") is None:
         print("ERROR: Node.js (npm/npx) is required to build the face bundle.", file=sys.stderr)
         return False
     if not (WEB / "node_modules" / "react").exists():
         print("==> Vendoring face web deps (npm install)…")
-        subprocess.run(["npm", "install", "--no-audit", "--no-fund"], check=True, cwd=WEB)
+        subprocess.run([npm, "install", "--no-audit", "--no-fund"], check=True, cwd=WEB)
     return True
 
 

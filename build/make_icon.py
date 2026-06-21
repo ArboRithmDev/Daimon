@@ -42,6 +42,65 @@ def _render_svg(svg: Path, size: int, out: Path) -> bool:
     return True
 
 
+# --- Windows .ico path ------------------------------------------------------
+# Windows has no librsvg/iconutil. PySide6's QtSvg (already a runtime dep) renders
+# the brand vector crisply at each size; Pillow assembles the multi-resolution
+# .ico that daimon_win.spec embeds as the exe/installer icon. No new dependency.
+
+_ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
+
+
+def _render_svg_qt(svg: Path, size: int):
+    """Rasterize `svg` to a `size`x`size` RGBA PIL image via QtSvg. None on failure."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from io import BytesIO
+
+    from PIL import Image
+    from PySide6.QtCore import QBuffer, QByteArray, Qt
+    from PySide6.QtGui import QGuiApplication, QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+
+    if QGuiApplication.instance() is None:
+        QGuiApplication([])  # offscreen; required before any QImage/QPainter use
+    renderer = QSvgRenderer(str(svg))
+    if not renderer.isValid():
+        return None
+    img = QImage(size, size, QImage.Format_ARGB32)
+    img.fill(Qt.transparent)
+    painter = QPainter(img)
+    renderer.render(painter)
+    painter.end()
+    ba = QByteArray()
+    buf = QBuffer(ba)
+    buf.open(QBuffer.WriteOnly)
+    img.save(buf, "PNG")
+    buf.close()
+    return Image.open(BytesIO(bytes(ba))).convert("RGBA")
+
+
+def write_ico(out: Path) -> bool:
+    """Write a multi-resolution `Daimon.ico` from the brand app SVG. False if the
+    SVG or QtSvg is unavailable (build falls back to a placeholder-free, iconless
+    exe rather than hard-failing)."""
+    if not _APP_SVG.exists():
+        return False
+    try:
+        frames = [im for s in _ICO_SIZES if (im := _render_svg_qt(_APP_SVG, s))]
+    except Exception as exc:  # noqa: BLE001 — best-effort build helper
+        print(f"WARNING: QtSvg .ico render failed ({exc}); skipping icon.")
+        return False
+    if not frames:
+        return False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    base = frames[-1]  # largest; Pillow embeds the rest as additional ICO frames
+    base.save(out, format="ICO", sizes=[(im.width, im.height) for im in frames],
+              append_images=frames[:-1])
+    print(f"icon written to {out} ({len(frames)} sizes)")
+    return True
+
+
 def _draw_placeholder(size: int):
     from PIL import Image, ImageDraw, ImageFont
 
@@ -67,7 +126,14 @@ def _draw_placeholder(size: int):
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="build/generated-icons")
+    p.add_argument("--ico", metavar="PATH",
+                   help="emit a multi-resolution Windows .ico (QtSvg) and exit")
     args = p.parse_args(argv)
+
+    # Windows packaging path: a single .ico for the exe/installer icon.
+    if args.ico:
+        return 0 if write_ico(Path(args.ico)) else 1
+
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
