@@ -12,12 +12,64 @@ Requires the built bundle (run `python build/make_face.py` first) and pywebview.
 from __future__ import annotations
 
 import sys
+import threading
 
 from .bridge import FaceBridge
 from .host import FaceHost
 from ..tray.actions import ActionRouter
 from ..tray.actions_impl import TrayActions
 from ..tray.state import gather
+
+
+def _run_on_main(fn):
+    """Run fn on the AppKit main thread and return its result. pywebview invokes
+    js_api methods on a worker thread, but NSAlert / NSWindow must run on main."""
+    from PyObjCTools import AppHelper
+    box: dict = {}
+    done = threading.Event()
+
+    def wrapper():
+        try:
+            box["v"] = fn()
+        except Exception:
+            box["v"] = None
+        finally:
+            done.set()
+
+    AppHelper.callAfter(wrapper)
+    done.wait()
+    return box.get("v")
+
+
+def _confirm_l4() -> bool:
+    def dialog():
+        from AppKit import NSAlert, NSAlertFirstButtonReturn
+        a = NSAlert.alloc().init()
+        a.setMessageText_("Engage L4 autonomy?")
+        a.setInformativeText_(
+            "Removes ALL per-action validation. Every action the AI requests will "
+            "execute immediately, recorded in the immutable consent ledger. "
+            "Disengage anytime from this menu."
+        )
+        a.addButtonWithTitle_("Engage")
+        a.addButtonWithTitle_("Cancel")
+        return a.runModal() == NSAlertFirstButtonReturn
+
+    return bool(_run_on_main(dialog))
+
+
+_onboarders: list = []
+
+
+def _open_onboarding() -> None:
+    def show():
+        from ..setup.gui.window import OnboardingController
+        from ..setup.permissions import MacOSBackend
+        controller = OnboardingController(MacOSBackend())
+        controller.show()
+        _onboarders.append(controller)  # keep alive
+
+    _run_on_main(show)
 
 
 def main() -> int:
@@ -38,8 +90,8 @@ def main() -> int:
 
     handlers = TrayActions(
         on_change=push,
-        confirm_l4=lambda: False,        # skeleton: L4 stays gated until the real dialog (Phase 3)
-        open_onboarding=lambda: None,    # onboarding surface = Phase 5
+        confirm_l4=_confirm_l4,
+        open_onboarding=_open_onboarding,
         on_quit=quit_all,
     )
     bridge = FaceBridge(ActionRouter(handlers), gather)
