@@ -87,13 +87,15 @@ class MacOSFaceAdapter:
         invoke on_outside. Returns the monitor (keep it alive)."""
         import AppKit
 
-        nswin = _nswindow(window)
-
         def _in(rect, loc):
             return (rect.origin.x <= loc.x <= rect.origin.x + rect.size.width
                     and rect.origin.y <= loc.y <= rect.origin.y + rect.size.height)
 
         def handler(event):
+            # Resolve the NSWindow lazily: pywebview sets window.native only once the
+            # GUI loop has created the window (after start()), not when this monitor
+            # was installed.
+            nswin = _nswindow(window)
             if nswin is None or not nswin.isVisible():
                 return
             loc = AppKit.NSEvent.mouseLocation()  # screen coords
