@@ -67,6 +67,8 @@ if [[ ! -d "$VENV_DIR" ]]; then
 fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
+# Self-heal a pip-less venv (e.g. one created by `uv venv`, which omits pip).
+python -m pip --version >/dev/null 2>&1 || python -m ensurepip --upgrade
 python -m pip install --upgrade pip wheel
 pip install -e "$REPO_ROOT[build]"
 
