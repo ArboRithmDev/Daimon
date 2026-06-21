@@ -16,9 +16,10 @@ function App() {
   useEffect(() => {
     refresh();
     bridge.onState((s) => setState(s));
-    // pywebview injects its api slightly after load; retry once.
-    const t = setTimeout(refresh, 120);
-    return () => clearTimeout(t);
+    // pywebview injects window.pywebview.api asynchronously; it fires
+    // 'pywebviewready' once the api is live — refresh then (robust vs a timeout).
+    window.addEventListener("pywebviewready", refresh);
+    return () => window.removeEventListener("pywebviewready", refresh);
   }, []);
 
   async function invoke(actionId, args) {

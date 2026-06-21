@@ -23,7 +23,11 @@ WEB = ROOT / "src/daimon/face/web"
 SRC = WEB / "src"
 DIST = WEB / "dist"
 SURFACES = ("panel", "overlay", "onboarding")
-CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+# default-src 'self' keeps the bundle offline (no remote origin). script-src adds
+# 'unsafe-eval' because pywebview builds its window.pywebview.api bridge via
+# Function/eval; bounded — the content is our own local bundle, never remote.
+CSP = ("default-src 'self'; script-src 'self' 'unsafe-eval'; "
+       "style-src 'self' 'unsafe-inline'; img-src 'self' data:;")
 
 _HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
