@@ -75,14 +75,19 @@ def run() -> int:
 
     state = {"visible": False}
 
+    import threading
+
     def toggle():
         if state["visible"]:
             panel.hide()
             state["visible"] = False
         else:
-            adapter.anchor_under_statusitem(panel, status_item)  # main thread (button action)
+            adapter.anchor_under_statusitem(panel, status_item)  # main thread (AppKit)
             panel.show()
-            host.push_state()
+            # push_state runs evaluate_js, which must NOT run on the main thread:
+            # WKWebView evaluates JS on the main run loop, so calling it here would
+            # deadlock (freeze the whole app). Refresh from a worker thread.
+            threading.Thread(target=host.push_state, daemon=True).start()
             state["visible"] = True
 
     target = make_target(toggle)
