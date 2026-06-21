@@ -39,6 +39,16 @@ Set-Location $root
 $version = (Select-String -Path "pyproject.toml" -Pattern '^version\s*=\s*"(.+)"').Matches[0].Groups[1].Value
 Write-Host "Building Daimon $version" -ForegroundColor Cyan
 
+# Stamp the version into the package. The frozen exe has no pyproject.toml, so
+# daimon.__init__ falls back to daimon/_version.py (gitignored, build-only) —
+# without this stamp the app reports "0.0.0+unknown" (mirrors build_macos.sh).
+$verModule = Join-Path $root "src\daimon\_version.py"
+Set-Content -Path $verModule -Encoding UTF8 -Value @"
+"""Version stamped by the build from pyproject.toml. Do not edit/commit."""
+__version__ = "$version"
+"@
+Write-Host "Stamped src\daimon\_version.py = $version" -ForegroundColor Cyan
+
 # 0. Stop any running Daimon.exe -------------------------------------------
 # A running instance (MCP server spawned by a client, the tray, or the overlay)
 # holds dist\Daimon files open, so PyInstaller can't overwrite them.
