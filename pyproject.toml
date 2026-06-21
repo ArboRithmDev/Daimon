@@ -23,6 +23,8 @@ dependencies = [
     "comtypes>=1.4; sys_platform == 'win32'",         # UIA COM bindings
     "uiautomation>=2.0; sys_platform == 'win32'",     # UIA tree (Touché)
     "PySide6>=6.7; sys_platform == 'win32'",          # overlay + onboarding GUI (the face)
+    "pywebview>=5.0; sys_platform == 'win32'",        # Windows face UI layer — EdgeChromium (WebView2) host
+    "pythonnet>=3.0; sys_platform == 'win32'",        # pywebview's EdgeChromium backend (WinForms + WebView2 via CLR)
 ]
 
 [project.optional-dependencies]
