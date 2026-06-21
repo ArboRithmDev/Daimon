@@ -20,6 +20,12 @@ class FaceBridge:
     def __init__(self, router: ActionRouter, state_provider: Callable[[], TrayState]) -> None:
         self._router = router
         self._state = state_provider
+        self._resizer: Callable[[int, int], None] | None = None
+
+    def set_resizer(self, resizer: Callable[[int, int], None]) -> None:
+        """Wire a window resizer (host-side) so the JS can fit the window to its
+        content. Pure window mechanics — no authority, no state."""
+        self._resizer = resizer
 
     def get_state(self) -> dict:
         return serialize(self._state())
@@ -27,3 +33,8 @@ class FaceBridge:
     def invoke(self, action_id: str, args: dict | None = None) -> dict:
         res = self._router.dispatch(action_id)
         return {"ok": res.ok, "reason": res.reason}
+
+    def resize_to(self, width: int, height: int) -> dict:
+        if self._resizer is not None:
+            self._resizer(int(width), int(height))
+        return {"ok": True}

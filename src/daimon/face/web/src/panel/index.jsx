@@ -22,6 +22,15 @@ function App() {
     return () => window.removeEventListener("pywebviewready", refresh);
   }, []);
 
+  // Fit the window to the rendered content (any client count) — measure after paint.
+  useEffect(() => {
+    if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.resize_to) return;
+    requestAnimationFrame(() => {
+      const h = document.getElementById("root").scrollHeight;
+      window.pywebview.api.resize_to(340, h);
+    });
+  });
+
   async function invoke(actionId, args) {
     await bridge.invoke(actionId, args);
     await refresh();

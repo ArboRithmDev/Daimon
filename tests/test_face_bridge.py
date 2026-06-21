@@ -75,3 +75,16 @@ def test_invoke_rejects_unknown_and_l4_set():
     r = b.invoke("set_ceiling:AUTONOMOUS")
     assert r["ok"] is False and "l4" in r["reason"].lower()
     assert rec.calls == []
+
+
+def test_resize_to_calls_injected_resizer():
+    b, _ = _bridge()
+    sizes = []
+    b.set_resizer(lambda w, h: sizes.append((w, h)))
+    assert b.resize_to("340", "700") == {"ok": True}
+    assert sizes == [(340, 700)]
+
+
+def test_resize_to_noop_without_resizer():
+    b, _ = _bridge()
+    assert b.resize_to(340, 700) == {"ok": True}  # must not raise

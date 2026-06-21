@@ -66,6 +66,10 @@ class FaceHost:
             width=self.PANEL_W, height=self.PANEL_H, transparent=True, resizable=False,
         )
         self._windows["panel"] = win
+        # Let the panel fit the window to its measured content height.
+        setter = getattr(self._bridge, "set_resizer", None)
+        if setter is not None:
+            setter(lambda w, h: win.resize(w, h))
         return win
 
     def open_overlay(self):
