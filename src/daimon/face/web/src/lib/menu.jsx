@@ -109,25 +109,35 @@ export function Panel({ state, invoke }) {
   const accent = state.brand.presence;
   const perms = state.permissions;
   const ceiling = state.ceiling;
+  const l4 = ceiling.l4_active;
+  const statusColor = l4 ? L4.color : accent;
   return (
     <div style={{ width: 322, fontFamily: SF, color: C.text, borderRadius: 20, overflow: "hidden",
-      background: C.bg, border: `0.5px solid ${C.border}`,
-      boxShadow: `0 0 0 0.5px ${C.ring}, 0 26px 64px -14px rgba(0,0,0,0.72), 0 8px 22px -10px rgba(0,0,0,.4)` }}>
+      background: C.bg,
+      // L4 frames the whole panel in the hot autonomy colour so elevated mode is unmistakable.
+      border: l4 ? `1px solid ${L4.color}` : `0.5px solid ${C.border}`,
+      boxShadow: l4
+        ? `0 0 0 1px ${L4.color}, 0 0 22px -2px ${L4.color}99, 0 26px 64px -14px rgba(0,0,0,0.72)`
+        : `0 0 0 0.5px ${C.ring}, 0 26px 64px -14px rgba(0,0,0,0.72), 0 8px 22px -10px rgba(0,0,0,.4)` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "14px 16px 11px" }}>
         <div style={{ width: 32, height: 32, borderRadius: 16, flex: "0 0 auto", display: "grid", placeItems: "center",
-          background: "linear-gradient(160deg,#1e2660,#0b0f24)", boxShadow: "inset 0 0.5px 0 rgba(255,255,255,.14)", color: accent }}>
+          background: "linear-gradient(160deg,#1e2660,#0b0f24)", boxShadow: "inset 0 0.5px 0 rgba(255,255,255,.14)", color: statusColor }}>
           <DuoGlyph size={23} />
         </div>
         <div style={{ lineHeight: 1.15 }}>
           <div style={{ fontSize: 14.5, fontWeight: 640, letterSpacing: "-0.01em" }}>Daimon</div>
           <div style={{ fontSize: 11.5, color: C.sub }}>Local daemon · v{state.version}</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 560, color: accent }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent, boxShadow: `0 0 8px ${accent}`,
-            animation: "daimonPulse 2.4s ease-in-out infinite" }} />
-          Ready
+        <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5,
+          fontWeight: l4 ? 700 : 560, color: statusColor }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, boxShadow: `0 0 8px ${statusColor}`,
+            animation: `daimonPulse ${l4 ? "1.1s" : "2.4s"} ease-in-out infinite` }} />
+          {l4 ? "L4 · Autonomous" : "Ready"}
         </div>
       </div>
+      {/* Status bar: hot + animated when L4 is engaged. */}
+      <div style={{ height: l4 ? 3 : 2.5, margin: "0 14px 2px", borderRadius: 2, background: statusColor,
+        opacity: 0.9, boxShadow: l4 ? `0 0 8px ${L4.color}` : "none" }} />
 
       <Sep />
       <SectionLabel>Permissions</SectionLabel>
@@ -141,18 +151,21 @@ export function Panel({ state, invoke }) {
       </Row>
 
       <Sep />
-      <SectionLabel>AI Clients</SectionLabel>
+      <SectionLabel>AI Clients{state.clients.length ? ` · ${state.clients.filter(c => c.registered).length}/${state.clients.length}` : ""}</SectionLabel>
       {state.clients.length === 0 && (
         <div style={{ padding: "2px 16px 6px", fontSize: 12, color: C.faint }}>No AI clients detected</div>
       )}
-      {state.clients.map(cl => (
-        <Row key={cl.name}>
-          <span style={{ fontSize: 13 }}>{cl.name}</span>
-          <span style={{ marginLeft: "auto" }}>
-            <Toggle on={cl.registered} accent={accent} onClick={() => invoke(`toggle_client:${cl.name}`)} />
-          </span>
-        </Row>
-      ))}
+      {/* Compact, scrollable: caps the panel height however long the list grows. */}
+      <div className="daimon-scroll" style={{ maxHeight: 198, overflowY: "auto", margin: "0 2px" }}>
+        {state.clients.map(cl => (
+          <div key={cl.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 12px", margin: "0 4px" }}>
+            <span style={{ fontSize: 12.5, color: cl.registered ? C.text : C.sub }}>{cl.name}</span>
+            <span style={{ marginLeft: "auto" }}>
+              <Toggle on={cl.registered} accent={accent} onClick={() => invoke(`toggle_client:${cl.name}`)} />
+            </span>
+          </div>
+        ))}
+      </div>
 
       <Sep />
       <SectionLabel>Hands ceiling</SectionLabel>

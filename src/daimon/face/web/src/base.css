@@ -11,3 +11,8 @@ body {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.45; transform: scale(0.82); }
 }
+/* Discreet scrollbar for capped, scrollable lists (e.g. AI clients). */
+.daimon-scroll::-webkit-scrollbar { width: 6px; }
+.daimon-scroll::-webkit-scrollbar-track { background: transparent; }
+.daimon-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 3px; }
+.daimon-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.30); }
