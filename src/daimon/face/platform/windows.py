@@ -28,5 +28,8 @@ class WindowsFaceAdapter:
     def fit_to_screen(self, window) -> None:  # pragma: no cover - Windows
         pass
 
+    def watch_outside_click(self, window, statusitem, on_outside):  # pragma: no cover - Windows
+        return None
+
     def anchor_under_statusitem(self, window, statusitem) -> None:  # pragma: no cover - Windows
         pass

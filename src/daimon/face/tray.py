@@ -96,6 +96,16 @@ def run() -> int:
         btn.setAction_("invoke:")
     _KEEP.extend([status_item, target])
 
+    # Dismiss-on-blur: a click outside the panel (and not on the glyph) closes it.
+    def dismiss():
+        if state["visible"]:
+            panel.hide()
+            state["visible"] = False
+
+    monitor = adapter.watch_outside_click(panel, status_item, dismiss)
+    if monitor is not None:
+        _KEEP.append(monitor)
+
     # Re-assert accessory policy after pywebview's own app setup, then run.
     def _after():
         app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)

@@ -80,6 +80,36 @@ class MacOSFaceAdapter:
             nswin.setFrame_display_(screen.frame(), True)
             nswin.setLevel_(AppKit.NSStatusWindowLevel)  # float above normal windows
 
+    def watch_outside_click(self, window, statusitem, on_outside):
+        """Dismiss-on-blur for a frameless panel: a global mouse monitor fires on
+        clicks in other apps / the desktop; if the click is outside the (visible)
+        window frame AND not on the status-item glyph (which toggles separately),
+        invoke on_outside. Returns the monitor (keep it alive)."""
+        import AppKit
+
+        nswin = _nswindow(window)
+
+        def _in(rect, loc):
+            return (rect.origin.x <= loc.x <= rect.origin.x + rect.size.width
+                    and rect.origin.y <= loc.y <= rect.origin.y + rect.size.height)
+
+        def handler(event):
+            if nswin is None or not nswin.isVisible():
+                return
+            loc = AppKit.NSEvent.mouseLocation()  # screen coords
+            if _in(nswin.frame(), loc):
+                return
+            btn = statusitem.button() if statusitem is not None else None
+            bwin = btn.window() if btn is not None else None
+            if bwin is not None:
+                bframe = bwin.convertRectToScreen_(btn.convertRect_toView_(btn.bounds(), None))
+                if _in(bframe, loc):
+                    return  # the glyph handles its own toggle
+            on_outside()
+
+        return AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+            AppKit.NSEventMaskLeftMouseDown | AppKit.NSEventMaskRightMouseDown, handler)
+
     def anchor_under_statusitem(self, window, statusitem) -> None:
         """Position the panel just below a status-item button. `statusitem` is an
         NSStatusItem; we read its button's screen frame and place the window

@@ -21,5 +21,8 @@ class NoopFaceAdapter:
     def fit_to_screen(self, window) -> None:
         pass
 
+    def watch_outside_click(self, window, statusitem, on_outside):
+        return None
+
     def anchor_under_statusitem(self, window, statusitem) -> None:
         pass
