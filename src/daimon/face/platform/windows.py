@@ -37,15 +37,24 @@ _SWP_NOSIZE = 0x0001
 
 
 def _hwnd(window):
-    """The HWND behind a pywebview EdgeChromium window, or None if not ready."""
+    """The HWND behind a pywebview EdgeChromium window, or None if not ready.
+
+    `window.native` is a WinForms Form; its `.Handle` is a pythonnet System.IntPtr,
+    which `int()` can't convert directly — go through `.ToInt64()`."""
     native = getattr(window, "native", None)
     if native is None:
         return None
-    try:
-        h = int(native.Handle)
-        return h or None
-    except Exception:
+    handle = getattr(native, "Handle", None)
+    if handle is None:
         return None
+    for conv in (handle.ToInt64, lambda: int(handle)):
+        try:
+            value = int(conv())
+            if value:
+                return value
+        except Exception:
+            continue
+    return None
 
 
 def _dwm_set_int(hwnd: int, attr: int, value: int) -> bool:
@@ -133,10 +142,75 @@ class WindowsFaceAdapter:
         except Exception:
             pass
 
+    def focus(self, window) -> None:
+        """Bring the panel to the foreground so it can detect losing focus."""
+        hwnd = _hwnd(window)
+        if hwnd:
+            try:
+                ctypes.windll.user32.SetForegroundWindow(wintypes.HWND(hwnd))
+            except Exception:
+                pass
+
     def watch_outside_click(self, window, statusitem, on_outside):
-        # Dismiss-on-blur via a global mouse hook is deferred; the panel is shown
-        # on tray click and hidden on the next tray click for now.
-        return None
+        """Dismiss-on-blur: once the panel has held the foreground, a poll fires
+        `on_outside` the moment focus moves to any other top-level window — a
+        click outside closes the panel. Returns the watcher thread (keep alive)."""
+        import threading
+        import time
+
+        state = {"stop": False, "had_focus": False}
+
+        def loop():
+            gfw = ctypes.windll.user32.GetForegroundWindow
+            time.sleep(0.6)  # grace: let the panel take the foreground first
+            while not state["stop"]:
+                hwnd = _hwnd(window)
+                if not hwnd:
+                    time.sleep(0.2)
+                    continue
+                try:
+                    fg = int(gfw())
+                except Exception:
+                    fg = 0
+                if fg == hwnd:
+                    state["had_focus"] = True
+                elif state["had_focus"]:
+                    try:
+                        on_outside()
+                    except Exception:
+                        pass
+                    return
+                time.sleep(0.22)
+
+        t = threading.Thread(target=loop, daemon=True)
+        t.start()
+        return t
+
+    def round_window(self, window, radius: int = 20) -> None:
+        """Clip the window to a rounded rectangle so its corners match the panel
+        card's CSS radius. WebView2 is opaque, so DWM's fixed ~8px rounding can't
+        match a 20px card; a GDI region clips the real window shape to `radius`."""
+        hwnd = _hwnd(window)
+        if not hwnd:
+            return
+        try:
+            wr = wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(wr))
+            w = wr.right - wr.left
+            h = wr.bottom - wr.top
+            if w <= 0 or h <= 0:
+                return
+            # DPI-scale the CSS radius to physical pixels so it tracks the card.
+            try:
+                dpi = ctypes.windll.user32.GetDpiForWindow(wintypes.HWND(hwnd)) or 96
+            except Exception:
+                dpi = 96
+            d = max(2, round(radius * 2 * dpi / 96))  # ellipse diameter for the corners
+            rgn = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d)
+            # SetWindowRgn takes ownership of the region; redraw immediately.
+            ctypes.windll.user32.SetWindowRgn(wintypes.HWND(hwnd), rgn, True)
+        except Exception:
+            pass
 
     def anchor_under_statusitem(self, window, statusitem) -> None:
         """Place the panel at the bottom-right, just above the taskbar — where the

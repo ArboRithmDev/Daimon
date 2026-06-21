@@ -13,6 +13,17 @@ function App() {
     if (window.pywebview && window.pywebview.api) setState(await bridge.getState());
   }
 
+  // Windows WebView2 has no acrylic behind the page, so a transparent body shows
+  // white. When the state says backdrop:"solid", paint the document itself indigo
+  // (macOS keeps the transparent body so its native vibrancy shows through).
+  useEffect(() => {
+    if (state && state.brand && state.brand.backdrop === "solid") {
+      const indigo = "linear-gradient(165deg,#222a57 0%,#141a3a 46%,#0b0f24 100%)";
+      document.documentElement.style.background = indigo;
+      document.body.style.background = indigo;
+    }
+  }, [state]);
+
   useEffect(() => {
     refresh();
     bridge.onState((s) => setState(s));

@@ -48,6 +48,14 @@ def test_frozen_runs_face_tray_when_available(monkeypatch):
     assert ran.get("face") is True
 
 
+def test_face_subcommand_runs_panel(monkeypatch):
+    # The tray spawns `daimon face` to open the Duo panel as its own process.
+    ran = {}
+    monkeypatch.setattr("daimon.__main__._run_panel", lambda: ran.setdefault("panel", True) and 0)
+    assert m.main(["face"]) == 0
+    assert ran.get("panel") is True
+
+
 def test_face_tray_unavailable_off_macos(monkeypatch):
     # Enabling pywebview on Windows must NOT route the default tray to the
     # AppKit-only face tray: the seam stays False off macOS regardless of whether

@@ -30,8 +30,14 @@ def test_adapter_methods_noop_without_native_handle():
     a.exclude_from_capture(w)
     a.set_click_through(w)
     a.fit_to_screen(w)
+    a.round_window(w, radius=20)
+    a.focus(w)
     a.anchor_under_statusitem(w, None)
-    assert a.watch_outside_click(w, None, lambda: None) is None
+    # The blur watcher starts a daemon poll thread; with no HWND it just idles and
+    # never fires on_outside. It returns the thread (kept alive by the caller).
+    fired = []
+    watcher = a.watch_outside_click(w, None, lambda: fired.append(1))
+    assert watcher is not None and not fired
 
 
 def test_run_on_main_calls_through():

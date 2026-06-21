@@ -111,13 +111,24 @@ export function Panel({ state, invoke }) {
   const ceiling = state.ceiling;
   const l4 = ceiling.l4_active;
   const statusColor = l4 ? L4.color : accent;
+  // macOS paints a translucent card over native vibrancy; Windows WebView2 has no
+  // acrylic behind the page, so it paints an opaque indigo card, not muddy grey.
+  const solid = state.brand && state.brand.backdrop === "solid";
+  const panelBg = solid ? "linear-gradient(165deg,#222a57 0%,#141a3a 46%,#0b0f24 100%)" : C.bg;
+  // Vivid hot frame for L4 (more saturated than the muted dot tone) so engaged
+  // autonomy is unmistakable — especially on the opaque Windows card.
+  const L4FRAME = "#FF4D7D";
   return (
-    <div style={{ width: "100%", fontFamily: SF, color: C.text, borderRadius: 20, overflow: "hidden",
-      background: C.bg,
+    <div style={{ width: "100%", fontFamily: SF, color: C.text,
+      // Solid (Windows): the card is square and fills the window; DWM rounds the
+      // window itself (smooth, native), so the card mustn't add a competing arc.
+      // Vibrancy (macOS): the card carries the rounding over the blur backing.
+      borderRadius: solid ? 0 : 20, overflow: "hidden",
+      background: panelBg,
       // L4 frames the whole panel in the hot autonomy colour so elevated mode is unmistakable.
-      border: l4 ? `1px solid ${L4.color}` : `0.5px solid ${C.border}`,
+      border: l4 ? `2px solid ${L4FRAME}` : `0.5px solid ${C.border}`,
       boxShadow: l4
-        ? `0 0 0 1px ${L4.color}, 0 0 22px -2px ${L4.color}99, 0 26px 64px -14px rgba(0,0,0,0.72)`
+        ? `inset 0 0 0 1px ${L4FRAME}, inset 0 0 18px -4px ${L4FRAME}aa, 0 0 0 1px ${L4FRAME}, 0 0 30px -2px ${L4FRAME}cc, 0 26px 64px -14px rgba(0,0,0,0.72)`
         : `0 0 0 0.5px ${C.ring}, 0 26px 64px -14px rgba(0,0,0,0.72), 0 8px 22px -10px rgba(0,0,0,.4)` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "14px 16px 11px" }}>
         <div style={{ width: 32, height: 32, borderRadius: 16, flex: "0 0 auto", display: "grid", placeItems: "center",

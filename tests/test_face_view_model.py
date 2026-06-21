@@ -25,7 +25,10 @@ def test_serialize_shape_and_values():
 
 def test_serialize_carries_locked_brand_track():
     v = serialize(_state())
-    assert v["brand"] is BRAND
+    # The locked brand track is carried verbatim, plus a per-OS `backdrop` hint
+    # (the web layer paints a solid card off macOS, a translucent one over vibrancy).
+    assert {k: v["brand"][k] for k in BRAND} == BRAND
+    assert v["brand"]["backdrop"] in ("vibrancy", "solid")
     assert BRAND["presence"] == "#B66CFF" and BRAND["companion"] == "#E8B23A"
     assert BRAND["finish"] == "indigo" and BRAND["lead"] == "beside" and BRAND["style"] == "organic"
 

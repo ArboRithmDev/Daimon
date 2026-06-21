@@ -20,6 +20,7 @@ class WindowsTrayController:
         self._update_info = None    # the resolved UpdateInfo to apply
         self._update_bridge = None
         self._update_timer = None
+        self._panel_proc = None   # the toggled webview face panel subprocess
 
     def install(self, app) -> None:
         from PySide6 import QtCore, QtWidgets
@@ -29,13 +30,10 @@ class WindowsTrayController:
         self._tray.setIcon(self._icon())
         self._tray.setToolTip("Daimon")
 
-        # One persistent menu, repopulated each time it is about to open. A
-        # periodic setContextMenu() would replace the menu WHILE it is open and
-        # dismiss it after a couple of seconds (the "menu closes itself" bug).
-        self._menu = QtWidgets.QMenu()
-        self._menu.aboutToShow.connect(self._refresh)
-        self._refresh()
-        self._tray.setContextMenu(self._menu)
+        # The Duo charte panel (webview face) is the ONLY menu now — the legacy Qt
+        # QMenu is gone. ANY click on the glyph (left, right, double) toggles the
+        # panel, which carries every action the old menu had.
+        self._tray.activated.connect(self._on_activated)
         self._tray.show()
 
         # Auto-update: check shortly after start, then on the configured interval.
@@ -112,8 +110,52 @@ class WindowsTrayController:
         except Exception:
             return None
 
+    @staticmethod
+    def _panel_cmd():
+        """Command that launches the webview face panel. Frozen: `Daimon.exe face`
+        (sys.executable is the Daimon binary). Source: `-m daimon face`."""
+        import sys
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "face"]
+        return [sys.executable, "-m", "daimon", "face"]
+
+    def _on_activated(self, reason) -> None:
+        # The panel is the whole menu now: every click (left, right, double,
+        # middle) toggles it. No legacy Qt context menu is attached.
+        self._toggle_panel()
+
+    def _toggle_panel(self) -> None:
+        """Open the Duo panel on glyph click; close it on a second click."""
+        import os
+        import subprocess
+
+        proc = self._panel_proc
+        if proc is not None and proc.poll() is None:
+            # Panel is open — second click closes it.
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            self._panel_proc = None
+            return
+        try:
+            env = dict(os.environ, DAIMON_TRAY_PID=str(os.getpid()))
+            self._panel_proc = subprocess.Popen(
+                self._panel_cmd(), env=env,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                close_fds=True)
+        except Exception:
+            self._panel_proc = None
+
     def _refresh(self) -> None:
-        """Repopulate the persistent menu with fresh state (called on open)."""
+        """Repopulate the persistent menu with fresh state (called on open).
+
+        No-op now that the panel replaced the Qt menu: there is no `_menu` to
+        repopulate, and the panel reads fresh state via `gather()` each time it
+        opens. Kept (with `_fill`) so the pure menu model stays exercised in tests
+        and so a future in-tray menu can be re-attached without rewiring."""
+        if self._menu is None:
+            return
         from ..menu_model import build_menu
         from ..state import gather
         try:

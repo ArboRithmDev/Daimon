@@ -49,6 +49,95 @@ def _run_gui() -> int:
     return gui_main()
 
 
+def _run_panel() -> int:
+    """The webview face PANEL as its own process (the Duo charte UI). The Windows
+    tray toggles it on glyph click — pywebview (WebView2) and the Qt tray each own
+    an incompatible GUI loop, so the panel runs standalone here and owns its own.
+
+    A frozen-reachable `face` subcommand: in the frozen exe the spawn target is
+    Daimon.exe (sys.executable), so it must dispatch on an explicit arg.
+    """
+    import os
+
+    import webview
+
+    from daimon.face.bridge import FaceBridge
+    from daimon.face.host import FaceHost
+    from daimon.face.native_win import confirm_l4, open_onboarding
+    from daimon.tray.actions import ActionRouter
+    from daimon.tray.actions_impl import TrayActions
+    from daimon.tray.state import gather
+
+    holder: dict = {}
+
+    def push():
+        host = holder.get("host")
+        if host is not None:
+            host.push_state()
+
+    def quit_all():
+        # "Quit Daimon" from the panel must stop the owning tray too, not just
+        # this panel process. The tray passes its PID in the environment.
+        owner = os.environ.get("DAIMON_TRAY_PID")
+        if owner:
+            try:
+                os.kill(int(owner), 9)
+            except Exception:
+                pass
+        for w in list(getattr(webview, "windows", [])):
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+    handlers = TrayActions(
+        on_change=push,
+        confirm_l4=confirm_l4,
+        open_onboarding=open_onboarding,
+        on_quit=quit_all,
+    )
+    from daimon.face.platform import get_adapter
+    adapter = get_adapter()
+    bridge = FaceBridge(ActionRouter(handlers), gather)
+    host = FaceHost(bridge, webview_module=webview, adapter=adapter)
+    holder["host"] = host
+    win = host.open_panel()
+
+    def _place():
+        # Pin the panel to the tray corner. Corner rounding is left to DWM (smooth,
+        # native Win11) over the square card — a GDI SetWindowRgn would jag the edge
+        # and clash with the card's antialiased corner.
+        adapter.anchor_under_statusitem(win, None)
+
+    def _dismiss():
+        for w in list(getattr(webview, "windows", [])):
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+    def _on_shown():
+        _place()
+        adapter.focus(win)
+        # Dismiss-on-blur: a click outside the panel closes it (the process exits;
+        # the tray re-spawns it on the next glyph click).
+        adapter.watch_outside_click(win, None, _dismiss)
+
+    # Re-round + re-anchor after the web layer fits the window to its content
+    # height (the panel auto-resizes), so the corner stays pinned with no gap and
+    # the rounded region tracks the new size.
+    bridge.set_resizer(lambda w, h: (win.resize(w, h), _place()))
+    events = getattr(win, "events", None)
+    if events is not None and hasattr(events, "shown"):
+        events.shown += _on_shown
+    else:
+        _on_shown()
+
+    # http_server: serve the bundle over http://127.0.0.1 so its CSP 'self' allows it.
+    webview.start(http_server=True)
+    return 0
+
+
 def _face_tray_available() -> bool:
     """Whether the integrated webview "face" tray can run here: pywebview importable
     AND the built web bundle present. A single seam so dispatch is deterministic +
@@ -89,6 +178,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_server()
     if argv and argv[0] == "overlay":
         return _run_overlay()
+    if argv and argv[0] == "face":
+        return _run_panel()
     if argv and argv[0] in _SUBCOMMANDS:
         from daimon.setup.cli import run_command
         return run_command(argv)
