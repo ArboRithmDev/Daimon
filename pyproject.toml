@@ -1,6 +1,6 @@
 [project]
 name = "daimon"
-version = "0.0.7"
+version = "0.0.10"
 description = "Daimon — a local sensory organ on macOS. Exposes screen perception (Vue, Touché) to any AI client over MCP. Agnostic by design; it never calls an AI itself."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,7 @@ dependencies = [
     "pyobjc-framework-Vision>=10.0",        # on-device OCR for vue_find (AXE 3 locator)
     "Pillow>=10.0",        # image encode/downscale for Vue snapshots
     "PyYAML>=6.0",         # exclusion-zone config
+    "pywebview>=5.0",      # the face UI layer — system webview (WKWebView) host
 ]
 
 [project.optional-dependencies]
