@@ -1,8 +1,10 @@
 import asyncio
+
 from daimon.server import build_server
 
 
-def test_server_exposes_full_toolset():
+def test_server_exposes_full_toolset(tmp_path, monkeypatch):
+    monkeypatch.setenv("DAIMON_DATA_DIR", str(tmp_path))  # no real-home pollution
     names = {t.name for t in asyncio.run(build_server().list_tools())}
     expected = {
         "vue_displays", "vue_snapshot", "vue_resolve", "vue_find",

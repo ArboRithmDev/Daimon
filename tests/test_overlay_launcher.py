@@ -1,7 +1,14 @@
 import os
 import socket
+import sys
+
+import pytest
 
 from daimon.overlay import launcher
+
+# AF_UNIX + fcntl flock are POSIX; the Windows overlay launcher is tested by
+# tests/test_overlay_launcher_win.py (TCP + msvcrt lock).
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX overlay launcher")
 
 
 def _short_sock(name: str) -> str:

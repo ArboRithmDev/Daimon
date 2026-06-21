@@ -1,12 +1,18 @@
+import sys
 from pathlib import Path
 
 from daimon import userdata
 
 
-def test_default_is_application_support(monkeypatch):
+def test_default_data_dir_is_os_appropriate(monkeypatch):
     monkeypatch.delenv("DAIMON_DATA_DIR", raising=False)
     d = userdata.data_dir()
-    assert str(d).endswith("Library/Application Support/Daimon")
+    if sys.platform == "win32":
+        assert d.name == "Daimon" and "Roaming" in str(d)
+    elif sys.platform == "darwin":
+        assert str(d).replace("\\", "/").endswith("Library/Application Support/Daimon")
+    else:
+        assert d.name == "Daimon"
     assert userdata.config_dir() == d / "config"
     assert userdata.logs_dir() == d / "logs"
 

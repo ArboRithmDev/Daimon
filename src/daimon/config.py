@@ -190,3 +190,43 @@ def load_overlay_config(path: Path | None = None) -> OverlayConfig:
         opacity=float(raw.get("opacity", 0.95)),
         anti_feedback=bool(raw.get("anti_feedback", True)),
     )
+
+
+# --- update config --------------------------------------------------------
+_UPDATE_DEFAULT = config_dir() / "update.yaml"
+_UPDATE_EXAMPLE = _REPO_ROOT / "config" / "update.example.yaml"
+_DEFAULT_MANIFEST_URL = (
+    "https://github.com/ArboRithmDev/Daimon/releases/latest/download/latest.json"
+)
+
+
+@dataclass(frozen=True)
+class UpdateConfig:
+    enabled: bool = True
+    manifest_url: str = _DEFAULT_MANIFEST_URL
+    interval_hours: float = 24.0
+    auto_apply: bool = False        # notify by default; apply only on click
+    allow_prerelease: bool = False
+
+
+def _update_path() -> Path:
+    env = os.environ.get("DAIMON_UPDATE_CONFIG")
+    if env:
+        return Path(env).expanduser()
+    return _UPDATE_DEFAULT if _UPDATE_DEFAULT.exists() else _UPDATE_EXAMPLE
+
+
+def load_update_config(path: Path | None = None) -> UpdateConfig:
+    """Load the auto-update config; an absent file yields the safe defaults
+    (enabled, notify-only, stable channel, 24h interval)."""
+    path = path or _update_path()
+    if not path.exists():
+        return UpdateConfig()
+    raw = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("update", {}) or {}
+    return UpdateConfig(
+        enabled=bool(raw.get("enabled", True)),
+        manifest_url=str(raw.get("manifest_url") or _DEFAULT_MANIFEST_URL),
+        interval_hours=float(raw.get("interval_hours", 24.0)),
+        auto_apply=bool(raw.get("auto_apply", False)),
+        allow_prerelease=bool(raw.get("allow_prerelease", False)),
+    )

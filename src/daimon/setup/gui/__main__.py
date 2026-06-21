@@ -15,6 +15,11 @@ from __future__ import annotations
 
 
 def main() -> int:
+    import sys
+    if sys.platform == "win32":
+        from .window_win import run as win_run
+        return win_run()
+
     from AppKit import NSApplication, NSApplicationActivationPolicyRegular
     from PyObjCTools import AppHelper
     from ..permissions import MacOSBackend

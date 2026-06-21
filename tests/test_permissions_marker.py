@@ -1,4 +1,5 @@
 from daimon.setup.permissions import FakeBackend, read_status, record_status, status_marker_path
+from daimon.userdata import data_dir
 
 
 def test_record_then_read_round_trip(tmp_path):
@@ -18,5 +19,7 @@ def test_record_creates_parent_dirs(tmp_path):
     assert p.exists()
 
 
-def test_marker_path_under_application_support():
-    assert str(status_marker_path()).endswith("Library/Application Support/Daimon/permissions.json")
+def test_marker_path_under_data_dir():
+    p = status_marker_path()
+    assert p.name == "permissions.json"
+    assert str(data_dir()) in str(p)  # lives under the per-OS data dir

@@ -1,9 +1,13 @@
-"""Windows backend parity — the pure rect→Display shaping, no Win32 runtime.
+"""Windows backend parity — the pure rect→Display shaping.
 
 Origin must be surfaced from the monitor rect (left/top), exactly as the macOS
 backend surfaces it from CGDisplayBounds, so coord-space is platform-identical.
-The live Win32 calls are scaffolded (NotImplementedError) until the real runtime.
+The pure shaping (display_from_monitor) is exercised on any platform; the live
+Win32 runtime (list_displays/dpi_for_monitor/capture_display) is real and only
+runs on Windows — off Windows it fails fast on the missing pywin32 stack.
 """
+
+import sys
 
 import pytest
 
@@ -43,12 +47,17 @@ def test_win_display_feeds_same_coordspace_as_mac():
     assert cs.to_global(1600, 0) == (0, 0)
 
 
-def test_scaffolded_runtime_calls_raise_not_implemented():
-    with pytest.raises(NotImplementedError):
+def test_runtime_calls_require_win32_stack():
+    # The Win32 runtime calls are REAL now (no longer scaffolded). On Windows
+    # they actually enumerate/capture; off Windows they fail fast on the missing
+    # pywin32 stack rather than silently returning bogus geometry.
+    if sys.platform == "win32":
+        pytest.skip("on Windows the runtime calls run for real")
+    with pytest.raises((ModuleNotFoundError, ImportError)):
         screen_win.list_displays()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises((ModuleNotFoundError, ImportError)):
         screen_win.dpi_for_monitor(1)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises((ModuleNotFoundError, ImportError)):
         screen_win.capture_display()
 
 

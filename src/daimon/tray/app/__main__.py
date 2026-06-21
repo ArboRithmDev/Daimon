@@ -8,7 +8,12 @@ from __future__ import annotations
 
 
 def main() -> int:
-    """Start the NSStatusItem tray app and run the AppKit event loop."""
+    """Start the resident tray app and run its event loop."""
+    import sys
+    if sys.platform == "win32":
+        from .statusitem_win import main as win_main
+        return win_main()
+
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     from PyObjCTools import AppHelper
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 
 def main() -> None:
-    """Acquire the singleton socket, build the window/scene/server, run AppKit."""
+    """Acquire the singleton socket, build the window/scene/server, run the loop."""
+    import sys
+    if sys.platform == "win32":
+        from ._win_main import main as win_main
+        return win_main()
+
     from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
     from PyObjCTools import AppHelper
     from ...config import load_overlay_config

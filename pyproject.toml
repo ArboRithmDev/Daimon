@@ -8,12 +8,21 @@ license = "AGPL-3.0-or-later"
 authors = [{ name = "Ben" }]
 dependencies = [
     "mcp>=1.2.0",          # Model Context Protocol server SDK (FastMCP)
-    "pyobjc-framework-Quartz>=10.0",        # screen capture + display geometry
-    "pyobjc-framework-ApplicationServices>=10.0",  # Accessibility API (Touché)
-    "pyobjc-framework-Vision>=10.0",        # on-device OCR for vue_find (AXE 3 locator)
     "Pillow>=10.0",        # image encode/downscale for Vue snapshots
     "PyYAML>=6.0",         # exclusion-zone config
-    "pywebview>=5.0",      # the face UI layer — system webview (WKWebView) host
+    # --- macOS backends (Vue/Touché/Mains via pyobjc) ---
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",        # screen capture + display geometry
+    "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",  # Accessibility API (Touché)
+    "pyobjc-framework-Vision>=10.0; sys_platform == 'darwin'",        # on-device OCR for vue_find (AXE 3 locator)
+    "pywebview>=5.0; sys_platform == 'darwin'",       # the macOS face UI layer — system webview (WKWebView) host
+    # --- Windows backends ---
+    "pywin32>=306; sys_platform == 'win32'",          # foreground window, displays
+    # Vue captures via Pillow ImageGrab (BitBlt) — no extra dep. windows-capture
+    # (WGC) was dropped: it pulls OpenCV, whose first import in a frozen exe
+    # stalls for minutes and adds ~130 MB.
+    "comtypes>=1.4; sys_platform == 'win32'",         # UIA COM bindings
+    "uiautomation>=2.0; sys_platform == 'win32'",     # UIA tree (Touché)
+    "PySide6>=6.7; sys_platform == 'win32'",          # overlay + onboarding GUI (the face)
 ]
 
 [project.optional-dependencies]

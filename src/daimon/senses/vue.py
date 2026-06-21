@@ -21,7 +21,7 @@ import json
 from mcp.server.fastmcp import Image as MCPImage
 from mcp.types import TextContent
 
-from ..capture import screen
+from .. import backends
 from ..capture.coordspace import CoordSpace, coord_space_contract
 from ..exclusions import ExclusionFilter
 from .base import Sense
@@ -82,7 +82,7 @@ class Vue(Sense):
                     "origin": {"x": d.origin_x, "y": d.origin_y},
                     "dpi": d.dpi,
                 }
-                for d in screen.list_displays()
+                for d in backends.build_screen().list_displays()
             ]
 
         @mcp.tool(
@@ -99,7 +99,7 @@ class Vue(Sense):
         )
         def vue_snapshot(display: int = 0, max_width: int = 720,
                          region: dict | None = None) -> list:
-            frame = screen.capture_display(display_index=display, max_width=max_width, region=region)
+            frame = backends.build_screen().capture_display(display_index=display, max_width=max_width, region=region)
 
             gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
             if gate.refused:
@@ -166,7 +166,7 @@ class Vue(Sense):
                      source: str = "probe") -> dict:
             if not text or not text.strip():
                 raise ValueError("vue_find needs a non-empty text to locate")
-            frame = screen.capture_display(
+            frame = backends.build_screen().capture_display(
                 display_index=display, max_width=max_width, region=region)
 
             gate = self._exclusions.evaluate_frontmost(frame.frontmost_bundle_id)
@@ -209,7 +209,7 @@ class Vue(Sense):
             if not name or not name.strip():
                 raise ValueError("vue_calibrate needs a non-empty profile name")
             name = name.strip()
-            displays = screen.list_displays()
+            displays = backends.build_screen().list_displays()
             profile = profile_from_displays(name, displays)
             self._profiles.save(profile)
             return {
@@ -230,7 +230,7 @@ class Vue(Sense):
             ),
         )
         def vue_profile() -> dict:
-            displays = screen.list_displays()
+            displays = backends.build_screen().list_displays()
             matched = self._profiles.match(displays)
             known = [p.name for p in self._profiles.load_all()]
             if matched is not None:
@@ -268,7 +268,7 @@ class Vue(Sense):
             ),
         )
         def vue_profile_brief(expected: str | None = None) -> dict:
-            displays = screen.list_displays()
+            displays = backends.build_screen().list_displays()
             return active_profile_brief(self._profiles, displays, expected=expected)
 
         @mcp.tool(
@@ -284,7 +284,7 @@ class Vue(Sense):
             ),
         )
         def vue_pilot_brief(objective: str, expected: str | None = None) -> dict:
-            displays = screen.list_displays()
+            displays = backends.build_screen().list_displays()
             brief = active_profile_brief(self._profiles, displays, expected=expected)
             return pilot_brief(brief, objective)
 
@@ -316,12 +316,12 @@ class Vue(Sense):
         probing when no profile matches the current environment.
         """
         if source == "profile":
-            displays = screen.list_displays()
+            displays = backends.build_screen().list_displays()
             matched = self._profiles.match(displays)
             if matched is not None:
                 return coord_space_from_profile(matched, display, max_width, region)
             # no matching profile: fall through to live probing
-        displays = screen.list_displays()
+        displays = backends.build_screen().list_displays()
         if display < 0 or display >= len(displays):
             raise IndexError(
                 f"display {display} out of range (0..{len(displays) - 1})"
@@ -344,13 +344,15 @@ class Vue(Sense):
 
         Best-effort: returns [] whenever accessibility is unavailable or errors.
         The whole-app secret-app gate is already handled by evaluate_frontmost;
-        this method handles per-element secret roles only.
+        this method handles per-element secret roles only. The backend bounds its
+        own tree walk in time (UIA can be slow on complex Windows apps), so this
+        never stalls a capture.
         """
         try:
-            from ..capture import accessibility as ax
+            ax = backends.build_a11y()
             if not ax.is_trusted():
                 return []
-            tree = ax.snapshot_tree(max_depth=12, prune_empty=False)
+            tree = ax.snapshot_tree(max_depth=8, prune_empty=False, max_nodes=300)
             rects: list[dict] = []
 
             def walk(node: dict) -> None:

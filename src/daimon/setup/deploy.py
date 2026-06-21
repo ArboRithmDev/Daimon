@@ -63,10 +63,34 @@ def uninstall_agy_permissions_all(*, ts: str = "0", surfaces=None) -> list[base.
 
 
 def install_all() -> list[base.Result]:
-    """Register Daimon into every detected AI client + whitelist AGY tools."""
+    """Register Daimon into every detected AI client AND grant it maximum
+    permission there (auto-approve, no prompts) — registration alone leaves the
+    tools gated on most clients. AGY surfaces get their per-tool whitelist via the
+    dedicated AGY mechanism (the generic grant skips them — they carry no PermSpec).
+    Returns per-client results (registration + granted/whitelisted permissions;
+    silent no-op grants are omitted)."""
     entry = daimon_command()
-    results = [base.install(a, "daimon", entry) for a in detected(default_adapters())]
+    results: list[base.Result] = []
+    for a in detected(default_adapters()):
+        results.append(base.install(a, "daimon", entry))
+        grant = base.grant_permissions(a, entry)
+        if grant.action != "skipped":
+            results.append(grant)
     results += install_agy_permissions_all(workspace=Path.cwd())
+    return results
+
+
+def uninstall_all() -> list[base.Result]:
+    """Unregister Daimon from every detected client, revoke the permissions it
+    granted, and remove the AGY per-tool whitelists (reversible). Mirror of install_all."""
+    entry = daimon_command()
+    results: list[base.Result] = []
+    for a in detected(default_adapters()):
+        results.append(base.uninstall(a, "daimon"))
+        revoke = base.revoke_permissions(a, entry)
+        if revoke.action not in ("skipped", "absent"):
+            results.append(revoke)
+    results += uninstall_agy_permissions_all()
     return results
 
 

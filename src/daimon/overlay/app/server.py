@@ -41,6 +41,8 @@ class OverlayServer:
                  *, listen_sock=None, startup_grace: float = _STARTUP_GRACE,
                  scheduler=None, terminate=None, main_dispatch=None):
         self._scene = scene
+        # flip_height=None disables the Y flip (Windows/Qt is top-left origin like
+        # the protocol; macOS passes the window height to flip to bottom-left).
         self._flip = flip_height
         self._grace = idle_grace
         self._startup_grace = startup_grace
@@ -50,7 +52,8 @@ class OverlayServer:
         # Bumped whenever the client count changes; a pending quit timer only
         # fires if its captured generation still matches (i.e. still idle).
         self._quit_gen = 0
-        # Injectable seams (tests). Defaults wire to the AppKit run loop / NSApp.
+        # Injectable seams (tests / Windows). Defaults wire to the AppKit run
+        # loop / NSApp / a Unix-domain listener.
         self._scheduler = scheduler            # (delay, fn) -> None
         self._terminate = terminate            # () -> None
         self._main_dispatch = main_dispatch    # (fn, arg) -> None
@@ -168,6 +171,6 @@ class OverlayServer:
 
     def _flip_cmd(self, cmd):
         from dataclasses import replace
-        if hasattr(cmd, "y"):
+        if self._flip is not None and hasattr(cmd, "y"):
             return replace(cmd, y=int(self._flip - cmd.y))
         return cmd

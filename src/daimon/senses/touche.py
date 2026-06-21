@@ -15,7 +15,7 @@ actionable message instead of crashing.
 
 from __future__ import annotations
 
-from ..capture import accessibility as ax
+from .. import backends
 from .base import Sense
 
 _PERMISSION_HINT = (
@@ -51,6 +51,7 @@ class Touche(Sense):
             summary: bool = False,
             window: dict | None = None,
         ) -> dict:
+            ax = backends.build_a11y()
             if not ax.is_trusted():
                 return {"error": "accessibility_permission_denied", "hint": _PERMISSION_HINT}
             tree = ax.snapshot_tree(
@@ -70,6 +71,7 @@ class Touche(Sense):
             ),
         )
         def touche_probe(x: int, y: int) -> dict:
+            ax = backends.build_a11y()
             if not ax.is_trusted():
                 return {"error": "accessibility_permission_denied", "hint": _PERMISSION_HINT}
             node = ax.element_at(x, y)

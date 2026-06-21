@@ -22,12 +22,11 @@ from .senses.vue import Vue
 
 def _register_overlay(mcp) -> None:
     """Wire the optional HUD overlay tools onto the server."""
-    from .config import load_overlay_config
-    from .overlay import launcher
-    from .overlay.client import OverlayClient
+    from . import backends
     from .overlay.protocol import Highlight, Spotlight, Cursor, Banner, Clear
 
-    client = OverlayClient(launcher.socket_path())  # silent no-op if overlay not running
+    # Platform-selected client; silent no-op if the overlay helper isn't running.
+    client = backends.build_overlay_launcher().make_client()
 
     @mcp.tool(name="overlay_highlight", description="Outline a screen rect with an optional label.")
     def overlay_highlight(x: int, y: int, width: int, height: int, label: str = "") -> dict:
@@ -373,8 +372,9 @@ def _record_permission_status() -> None:
     TCC attaches to the launching client, not Daimon.app — only the server,
     running under that client, sees the true status."""
     try:
-        from .setup.permissions import MacOSBackend, record_status
-        record_status(MacOSBackend())
+        from . import backends
+        from .setup.permissions import record_status
+        record_status(backends.build_permissions_backend())
     except Exception:
         pass  # never block the server on a marker write
 

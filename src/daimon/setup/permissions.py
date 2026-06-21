@@ -47,6 +47,16 @@ class FakeBackend:
     def open_pane(self, pane): self.opened.append(pane)
 
 
+class WindowsBackend:
+    """Windows has no TCC gate: UIA (Touché/Mains) and WGC (Vue) need no per-app
+    grant. Both capabilities report as available; requests/panes are no-ops."""
+    def screen_recording_ok(self) -> bool: return True
+    def accessibility_ok(self) -> bool: return True
+    def request_screen_recording(self) -> None: pass
+    def request_accessibility(self) -> None: pass
+    def open_pane(self, pane: str) -> None: pass
+
+
 class MacOSBackend:
     """Real backend backed by Quartz/ApplicationServices TCC APIs."""
     def screen_recording_ok(self) -> bool:

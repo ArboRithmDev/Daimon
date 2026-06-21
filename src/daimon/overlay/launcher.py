@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import socket
 import subprocess
@@ -51,6 +50,7 @@ def bind_singleton(path: str):
     automatically when the holder dies (the fd is closed by the OS).
     """
     global _lock_fd
+    import fcntl  # POSIX-only; imported lazily so this module loads on Windows
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
     except OSError:
@@ -99,3 +99,9 @@ def ensure_running() -> None:
     """Spawn the overlay helper if no live one is already listening."""
     if not _socket_alive(socket_path()):
         _spawn()
+
+
+def make_client():
+    """An OverlayClient bound to this launcher's endpoint (macOS, AF_UNIX)."""
+    from .client import OverlayClient
+    return OverlayClient(socket_path())

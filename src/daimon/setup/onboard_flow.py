@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .permissions import MacOSBackend, permissions_status, Permission
+from .permissions import permissions_status, Permission
 from .wizard import IO, Step, Wizard
 
 
@@ -35,7 +35,9 @@ def build_wizard(backend) -> Wizard:
 
 def run_onboarding(*, backend=None, io: IO | None = None, max_polls: int = 30) -> int:
     """Run the permission wizard; return 0 if all granted, 1 otherwise."""
-    backend = backend or MacOSBackend()
+    if backend is None:
+        from .. import backends as _b
+        backend = _b.build_permissions_backend()
     io = io or ConsoleIO()
     ok = build_wizard(backend).run(io, max_polls=max_polls)
     io.say("Daimon is ready." if ok else "Some permissions are still missing — re-run `daimon onboard`.")
