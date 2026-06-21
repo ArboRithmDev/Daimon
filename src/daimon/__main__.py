@@ -50,8 +50,18 @@ def _run_gui() -> int:
 
 
 def _face_tray_available() -> bool:
-    """Whether the webview "face" tray can run here: pywebview importable AND the
-    built web bundle present. A single seam so dispatch is deterministic + testable."""
+    """Whether the integrated webview "face" tray can run here: pywebview importable
+    AND the built web bundle present. A single seam so dispatch is deterministic +
+    testable.
+
+    macOS-only for now: `face.tray` hosts the panel + NSStatusItem on the shared
+    NSApplication run loop (AppKit). On Windows the panel renders fine in WebView2,
+    but the tray-glyph→panel integration isn't built yet, so dispatch falls back to
+    the native Qt tray (which carries the coloured Duo glyph) even though pywebview
+    is now installed — otherwise this would route to the AppKit-only face tray and
+    crash on launch."""
+    if sys.platform != "darwin":
+        return False
     try:
         import webview  # noqa: F401
         from daimon.face.host import _dist_dir

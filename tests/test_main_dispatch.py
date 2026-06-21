@@ -48,6 +48,14 @@ def test_frozen_runs_face_tray_when_available(monkeypatch):
     assert ran.get("face") is True
 
 
+def test_face_tray_unavailable_off_macos(monkeypatch):
+    # Enabling pywebview on Windows must NOT route the default tray to the
+    # AppKit-only face tray: the seam stays False off macOS regardless of whether
+    # webview imports and the bundle is present, so dispatch uses the Qt tray.
+    monkeypatch.setattr(m.sys, "platform", "win32")
+    assert m._face_tray_available() is False
+
+
 def test_frozen_with_launch_services_arg_still_runs_tray(monkeypatch):
     # macOS may launch the .app with a stray `-psn_…` arg; it must NOT fall
     # through to the stdio server (which would wait on stdin and show nothing).

@@ -97,6 +97,8 @@ function Resolve-Iscc {
     $std = @(
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
         "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        # winget's `JRSoftware.InnoSetup` installs per-user here by default.
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
         "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
     )
     return ($std | Where-Object { Test-Path $_ } | Select-Object -First 1)
