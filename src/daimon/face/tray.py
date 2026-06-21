@@ -110,7 +110,8 @@ def run() -> int:
     def _after():
         app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-    webview.start(_after)
+    # http_server: serve the bundle over http://127.0.0.1 so CSP 'self' permits it.
+    webview.start(_after, http_server=True)
     return 0
 
 

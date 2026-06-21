@@ -49,7 +49,24 @@ def _run_gui() -> int:
     return gui_main()
 
 
+def _face_tray_available() -> bool:
+    """Whether the webview "face" tray can run here: pywebview importable AND the
+    built web bundle present. A single seam so dispatch is deterministic + testable."""
+    try:
+        import webview  # noqa: F401
+        from daimon.face.host import _dist_dir
+        return (_dist_dir() / "panel" / "index.html").exists()
+    except Exception:
+        return False
+
+
 def _run_tray() -> int:
+    # Prefer the webview "face" tray (the glyph opens the frosted panel); fall back
+    # to the native NSMenu tray if pywebview or the built bundle is missing, so the
+    # app always has a menu-bar presence.
+    if _face_tray_available():
+        from daimon.face.tray import run as face_run
+        return face_run()
     from daimon.tray.app.__main__ import main as tray_main
     return tray_main()
 

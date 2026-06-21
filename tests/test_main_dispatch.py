@@ -31,16 +31,28 @@ def test_serve_runs_server(monkeypatch):
 
 def test_no_arg_frozen_runs_tray(monkeypatch):
     monkeypatch.setattr(m.sys, "frozen", True, raising=False)
+    monkeypatch.setattr("daimon.__main__._face_tray_available", lambda: False)  # NSMenu fallback
     ran = {}
     monkeypatch.setattr("daimon.tray.app.__main__.main", lambda: ran.setdefault("tray", True) or 0)
     m.main([])
     assert ran.get("tray") is True
 
 
+def test_frozen_runs_face_tray_when_available(monkeypatch):
+    # When pywebview + the built bundle are present, the glyph opens the webview face.
+    monkeypatch.setattr(m.sys, "frozen", True, raising=False)
+    monkeypatch.setattr("daimon.__main__._face_tray_available", lambda: True)
+    ran = {}
+    monkeypatch.setattr("daimon.face.tray.run", lambda: ran.setdefault("face", True) or 0)
+    m.main([])
+    assert ran.get("face") is True
+
+
 def test_frozen_with_launch_services_arg_still_runs_tray(monkeypatch):
     # macOS may launch the .app with a stray `-psn_…` arg; it must NOT fall
     # through to the stdio server (which would wait on stdin and show nothing).
     monkeypatch.setattr(m.sys, "frozen", True, raising=False)
+    monkeypatch.setattr("daimon.__main__._face_tray_available", lambda: False)
     ran = {}
     monkeypatch.setattr("daimon.tray.app.__main__.main", lambda: ran.setdefault("tray", True) or 0)
     m.main(["-psn_0_123456"])
