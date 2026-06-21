@@ -27,8 +27,11 @@ function App() {
     await refresh();
   }
 
+  // Small inset so the card's rounded corners + drop shadow float clear of the
+  // transparent window edge.
+  const shell = (child) => <div style={{ padding: 9 }}>{child}</div>;
   if (!state) {
-    return (
+    return shell(
       <div style={{ padding: 20, fontFamily: "-apple-system, sans-serif", color: "#B66CFF",
         fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#B66CFF",
@@ -37,7 +40,7 @@ function App() {
       </div>
     );
   }
-  return <Panel state={state} invoke={invoke} />;
+  return shell(<Panel state={state} invoke={invoke} />);
 }
 
 createRoot(document.getElementById("root")).render(<App />);

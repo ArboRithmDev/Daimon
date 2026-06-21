@@ -52,10 +52,18 @@ class FaceHost:
             self._wv = webview
         return self._wv
 
+    # The panel card is 322px wide; the window is a touch wider/taller and
+    # transparent so the rounded card floats (rest = desktop, then native
+    # vibrancy). Auto-fit-to-content is a later refinement.
+    PANEL_W = 340
+    PANEL_H = 780
+
     def open_panel(self):
-        """Menu-bar dropdown: frameless + (native) vibrancy, anchored + dismiss-on-blur."""
+        """Menu-bar dropdown: frameless, transparent, fixed-size; (native)
+        vibrancy + anchor + dismiss-on-blur come from the platform adapter."""
         win = self._webview().create_window(
             "Daimon", _surface_url("panel"), js_api=self._bridge, frameless=True,
+            width=self.PANEL_W, height=self.PANEL_H, transparent=True, resizable=False,
         )
         self._windows["panel"] = win
         return win
