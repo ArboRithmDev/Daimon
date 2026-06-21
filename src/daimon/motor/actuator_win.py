@@ -104,15 +104,21 @@ class WindowsActuator:
         self._watchdog = HoldWatchdog(
             timeout=10.0, release=self._auto_release, clock=time.monotonic)
 
-    def execute(self, action: MotorAction) -> dict:
-        self._watchdog.tick()
-        handler = {
+    def _handlers(self):
+        return {
             "click": self._click, "type": self._type, "drag": self._drag,
             "press": self._press, "navigate": self._navigate, "key": self._key,
             "hover": self._hover, "activate": self._activate,
             "mouse_down": self._mouse_down, "mouse_up": self._mouse_up,
             "key_down": self._key_down, "key_up": self._key_up,
-        }.get(action.name)
+            "window_minimize": self._window_minimize,
+            "window_hide": self._window_hide,
+            "window_show": self._window_show,
+        }
+
+    def execute(self, action: MotorAction) -> dict:
+        self._watchdog.tick()
+        handler = self._handlers().get(action.name)
         if handler is None:
             raise ValueError(f"unknown action: {action.name}")
         handler(action)
@@ -214,29 +220,54 @@ class WindowsActuator:
             _set_cursor(x, y)
             _send(_mouse(_MOUSEEVENTF_MOVE))
 
-    def _activate(self, action: MotorAction) -> None:
+    def _resolve_hwnd(self, params: dict):
+        """First visible top-level window matching params (title substring or pid).
+
+        Shared by activate + the window ops, mirroring the macOS twin's
+        _running_app(params) resolution.
+        """
         import win32gui
         import win32process
-        p = action.params
         target = {"hwnd": None}
 
         def _enum(hwnd, _):
             if not win32gui.IsWindowVisible(hwnd):
                 return
             try:
-                if p.get("title") and p["title"] in win32gui.GetWindowText(hwnd):
+                if params.get("title") and params["title"] in win32gui.GetWindowText(hwnd):
                     target["hwnd"] = hwnd
-                elif p.get("pid"):
+                elif params.get("pid"):
                     _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                    if int(pid) == int(p["pid"]):
+                    if int(pid) == int(params["pid"]):
                         target["hwnd"] = hwnd
             except Exception:
                 pass
 
         win32gui.EnumWindows(_enum, None)
         if target["hwnd"] is None:
-            raise RuntimeError(f"No window matching {p}")
-        win32gui.SetForegroundWindow(target["hwnd"])
+            raise RuntimeError(f"No window matching {params}")
+        return target["hwnd"]
+
+    def _activate(self, action: MotorAction) -> None:
+        import win32gui
+        win32gui.SetForegroundWindow(self._resolve_hwnd(action.params))
+
+    def _window_minimize(self, action: MotorAction) -> None:
+        # macOS twin: AXMinimized=True. SW_MINIMIZE=6.
+        import win32gui
+        win32gui.ShowWindow(self._resolve_hwnd(action.params), 6)
+
+    def _window_hide(self, action: MotorAction) -> None:
+        # macOS twin: NSRunningApplication.hide(). SW_HIDE=0.
+        import win32gui
+        win32gui.ShowWindow(self._resolve_hwnd(action.params), 0)
+
+    def _window_show(self, action: MotorAction) -> None:
+        # macOS twin: unhide + AXMinimized=False + activate. SW_RESTORE=9.
+        import win32gui
+        hwnd = self._resolve_hwnd(action.params)
+        win32gui.ShowWindow(hwnd, 9)
+        win32gui.SetForegroundWindow(hwnd)
 
     def _mouse_down(self, action: MotorAction) -> None:
         x, y = self._xy(action)
