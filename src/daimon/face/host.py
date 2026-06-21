@@ -74,12 +74,14 @@ class FaceHost:
     PANEL_W = 322
     PANEL_H = 780
 
-    def open_panel(self):
+    def open_panel(self, *, hidden: bool = False):
         """Menu-bar dropdown: frameless, transparent, fixed-size; (native)
-        vibrancy + anchor + dismiss-on-blur come from the platform adapter."""
+        vibrancy + anchor + dismiss-on-blur come from the platform adapter.
+        `hidden=True` creates it off-screen (the tray shows it on glyph click)."""
         win = self._webview().create_window(
             "Daimon", _surface_url("panel"), js_api=self._bridge, frameless=True,
             width=self.PANEL_W, height=self.PANEL_H, transparent=True, resizable=False,
+            hidden=hidden,
         )
         self._windows["panel"] = win
         # Let the panel fit the window to its measured content height.
