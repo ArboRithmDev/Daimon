@@ -88,12 +88,21 @@ class FaceHost:
         return win
 
     def open_overlay(self):
-        """On-screen companion face: frameless, transparent, on-top, (native) capture-excluded."""
+        """On-screen companion face: a screen-wide transparent, click-through,
+        capture-excluded, always-on-top canvas (the daemon's presence; room for
+        future AI drawing)."""
         win = self._webview().create_window(
             "Daimon Overlay", _surface_url("overlay"), js_api=self._bridge,
             frameless=True, transparent=True, on_top=True,
         )
         self._windows["overlay"] = win
+
+        def _native():
+            self._adapter.exclude_from_capture(win)  # never in a screenshot (doctrine)
+            self._adapter.set_click_through(win)
+            self._adapter.fit_to_screen(win)
+
+        self._on_shown(win, _native)
         return win
 
     def open_onboarding(self):

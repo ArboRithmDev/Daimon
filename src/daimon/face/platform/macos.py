@@ -55,6 +55,24 @@ class MacOSFaceAdapter:
         if nswin is not None:
             nswin.setSharingType_(AppKit.NSWindowSharingNone)
 
+    def set_click_through(self, window) -> None:
+        """Let all mouse events pass through to the apps below (the overlay face
+        is presentational; the user interacts with what's underneath)."""
+        nswin = _nswindow(window)
+        if nswin is not None:
+            nswin.setIgnoresMouseEvents_(True)
+
+    def fit_to_screen(self, window) -> None:
+        """Size the window to the full main screen — the overlay is a screen-wide
+        transparent canvas (room for the companion + future AI drawing)."""
+        import AppKit
+
+        nswin = _nswindow(window)
+        screen = AppKit.NSScreen.mainScreen()
+        if nswin is not None and screen is not None:
+            nswin.setFrame_display_(screen.frame(), True)
+            nswin.setLevel_(AppKit.NSStatusWindowLevel)  # float above normal windows
+
     def anchor_under_statusitem(self, window, statusitem) -> None:
         """Position the panel just below a status-item button. `statusitem` is an
         NSStatusItem; we read its button's screen frame and place the window

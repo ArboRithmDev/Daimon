@@ -96,7 +96,10 @@ def main() -> int:
     )
     bridge = FaceBridge(ActionRouter(handlers), gather)
     host = FaceHost(bridge, webview_module=webview)
-    host.open_panel()
+    if "--overlay" in sys.argv:
+        host.open_overlay()   # the on-screen companion face (transparent, click-through)
+    else:
+        host.open_panel()
     # http_server: serve the bundle over http://127.0.0.1 so CSP 'self' permits it.
     webview.start(http_server=True, debug="--debug" in sys.argv)
     return 0

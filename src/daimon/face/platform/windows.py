@@ -19,5 +19,11 @@ class WindowsFaceAdapter:
     def exclude_from_capture(self, window) -> None:  # pragma: no cover - Windows
         pass
 
+    def set_click_through(self, window) -> None:  # pragma: no cover - Windows
+        pass
+
+    def fit_to_screen(self, window) -> None:  # pragma: no cover - Windows
+        pass
+
     def anchor_under_statusitem(self, window, statusitem) -> None:  # pragma: no cover - Windows
         pass

@@ -11,6 +11,15 @@ body {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.45; transform: scale(0.82); }
 }
+/* Overlay companion "face" — organic idle motion. */
+@keyframes faceBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.16); opacity: 0.4; }
+}
+@keyframes faceFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
 /* Discreet scrollbar for capped, scrollable lists (e.g. AI clients). */
 .daimon-scroll::-webkit-scrollbar { width: 6px; }
 .daimon-scroll::-webkit-scrollbar-track { background: transparent; }

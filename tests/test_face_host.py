@@ -38,6 +38,12 @@ class _FakeAdapter:
     def exclude_from_capture(self, window):
         self.calls.append(("exclude",))
 
+    def set_click_through(self, window):
+        self.calls.append(("click_through",))
+
+    def fit_to_screen(self, window):
+        self.calls.append(("fit",))
+
     def anchor_under_statusitem(self, window, statusitem):
         self.calls.append(("anchor",))
 
@@ -107,3 +113,12 @@ def test_open_panel_applies_vibrancy():
     adapter = _FakeAdapter()
     FaceHost(_FakeBridge(), webview_module=fw, adapter=adapter).open_panel()
     assert ("vibrancy", True) in adapter.calls
+
+
+def test_open_overlay_applies_capture_exclusion_and_click_through():
+    fw = _FakeWebview()
+    adapter = _FakeAdapter()
+    FaceHost(_FakeBridge(), webview_module=fw, adapter=adapter).open_overlay()
+    assert ("exclude",) in adapter.calls      # never in a screenshot (doctrine)
+    assert ("click_through",) in adapter.calls
+    assert ("fit",) in adapter.calls
