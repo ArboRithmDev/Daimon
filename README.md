@@ -4,19 +4,19 @@
 
 # Daimon
 
-**Give any AI eyes, hands, and a face on your Mac — safely.**
+**Give any AI eyes, hands, and a face on your desktop — safely.**
 
-A local macOS daemon that lets any MCP‑capable AI client *see* your screen,
-*act* on it, and *show* you what it's doing — under a safety ceiling **Daimon
-enforces itself**.
+A local daemon for **macOS and Windows** that lets any MCP‑capable AI client
+*see* your screen, *act* on it, and *show* you what it's doing — under a safety
+ceiling **Daimon enforces itself**.
 
 [![Release](https://img.shields.io/github/v/release/ArboRithmDev/Daimon?include_prereleases&sort=semver&label=release)](https://github.com/ArboRithmDev/Daimon/releases/latest)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Platform: macOS 11+](https://img.shields.io/badge/platform-macOS%2011%2B-lightgrey.svg)](#install-macos)
+[![Platform: macOS 11+ · Windows 10+](https://img.shields.io/badge/platform-macOS%2011%2B%20%C2%B7%20Windows%2010%2B-lightgrey.svg)](#install)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](pyproject.toml)
 [![Protocol: MCP](https://img.shields.io/badge/protocol-MCP-B66CFF.svg)](https://modelcontextprotocol.io)
 
-[Install](#install-macos) · [The triad](#the-triad) · [Security](#security-model) ·
+[Install](#install) · [The triad](#the-triad) · [Security](#security-model) ·
 [Architecture](ARCHITECTURE.md) · [Tools](#tool-reference) · [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -33,9 +33,11 @@ only when *it* wants to. Everything runs locally and the source is open, so you
 can audit exactly what it does with your screen.
 
 > [!WARNING]
-> **Public beta.** Daimon works end‑to‑end — installed, signed, driving real
-> apps — but it is young. Start at a low ceiling, read the [security
-> model](#security-model), and please [report issues](https://github.com/ArboRithmDev/Daimon/issues).
+> **Public beta.** Daimon works end‑to‑end — installed, driving real apps — on
+> macOS (signed + notarized) and Windows (the Windows build is **not yet
+> code‑signed**, so SmartScreen will warn on first run). It is young: start at a
+> low ceiling, read the [security model](#security-model), and please
+> [report issues](https://github.com/ArboRithmDev/Daimon/issues).
 
 ---
 
@@ -97,12 +99,13 @@ enforced in Daimon, not requested from the AI:
 - **Points of no return** (send / delete / pay / drop‑on‑Trash …) are classified
   on the **observed** element — the AI re‑probes the real target, so a lying
   agent can't dodge the gate by mislabelling a button — and gated by a **native
-  macOS confirmation dialog**. Timeout = deny.
+  OS confirmation** (a macOS dialog; a Windows Secure Desktop prompt). Timeout = deny.
 - **L4 full autonomy** unlocks only when a human types an engagement phrase
   out‑of‑band; consent is recorded in an append‑only, hash‑chained ledger.
   `no‑log = no‑act`, and a forged state file cannot escalate to L4.
-- **Secrets never leave.** Secret‑role fields (`AXSecureTextField`) and declared
-  apps are blanked in Touché and blacked out in Vue, *before* anything is served.
+- **Secrets never leave.** Secret‑role fields (macOS `AXSecureTextField` /
+  Windows UIA password fields) and declared apps are blanked in Touché and
+  blacked out in Vue, *before* anything is served.
 - **Kill it at any time.** The physical override always wins.
 
 Full threat model and the enforcement chain: **[SECURITY.md](SECURITY.md)**.
@@ -110,7 +113,9 @@ To report a vulnerability privately, see the same file.
 
 ---
 
-## Install (macOS)
+## Install
+
+### macOS
 
 1. Download `Daimon-<version>.dmg` from the [latest release](https://github.com/ArboRithmDev/Daimon/releases/latest).
 2. Open it and drag **Daimon** to **Applications**.
@@ -131,6 +136,25 @@ overlay, re‑run setup, open config/logs, and quit — any time.
 
 The DMG is a signed **Developer ID** build, **notarized** and **stapled** by
 Apple, so Gatekeeper accepts it without a right‑click bypass.
+
+### Windows
+
+1. Download `Daimon-<version>-setup.exe` from the [latest release](https://github.com/ArboRithmDev/Daimon/releases/latest).
+2. Run it — a **per‑user** install (`%LOCALAPPDATA%\Programs\Daimon`, no admin
+   prompt). The build is **not yet code‑signed**, so SmartScreen shows a warning:
+   choose **More info → Run anyway**.
+3. Launch **Daimon** — the Duo glyph appears in the notification tray. Click it
+   to open the panel (perceive/act status, clients, hands ceiling, overlay,
+   setup). First run offers onboarding.
+4. **Register your AI clients** and restart them. They now have `vue_*`,
+   `touche_*`, `main_*`, `overlay_*`.
+
+> [!NOTE]
+> Windows needs no Screen Recording / Accessibility grants — capture is BitBlt
+> and the UI tree is UI Automation. Requires Windows 10 2004+ and the Microsoft
+> **WebView2 runtime** (preinstalled with current Windows / Edge). When an app
+> exposes no UI Automation tree (some WinDev / custom‑drawn apps), use
+> `vue_find` to locate a label by on‑device OCR and click it by coordinates.
 
 ### Supported AI clients
 
@@ -185,15 +209,26 @@ CLI: `daimon install [--all] | uninstall | status | onboard | setup`.
 Set the ceiling in `~/Library/Application Support/Daimon/config/motor.yaml`
 (or via the menu bar). Unlock L4: `python -m daimon.motor.control engage`.
 
-## Build the signed DMG
+## Build the installers
 
-See [`build/macos/README.md`](build/macos/README.md). Requires Xcode CLT, an
-Apple Developer ID, notary credentials, and `librsvg` for the brand icon
+**macOS** — see [`build/macos/README.md`](build/macos/README.md). Requires Xcode
+CLT, an Apple Developer ID, notary credentials, and `librsvg` for the brand icon
 (`brew install librsvg`). Then:
 
 ```bash
 ./build/macos/build_macos.sh            # PyInstaller → sign → DMG → notarize → staple
 ./build/macos/build_macos.sh --no-sign  # fast local build, no signing
+```
+
+**Windows** — requires the `.venv-win` dev venv, PyInstaller, Node (for the face
+bundle), and Inno Setup 6 for the installer. The script generates the brand
+`.ico` (QtSvg) and the face web bundle, freezes two exes (`Daimon.exe` tray +
+`daimon-mcp.exe` console MCP server), then builds the setup. Authenticode signing
+is optional (`-NoSign` to skip):
+
+```powershell
+$env:DAIMON_CERT_SUBJECT = "Arborithm"   # omit + pass -NoSign for an unsigned build
+.\build\windows\build_windows.ps1
 ```
 
 ## Tests
@@ -203,19 +238,23 @@ PYTHONPATH=src python -m pytest -q
 ```
 
 The pure core — guard, reversibility, consent ledger, audit, secrets filter,
-client registration, overlay lifecycle, tray menu — is unit‑tested without
-macOS; the AppKit surfaces are smoke‑validated.
+client registration, overlay lifecycle, tray menu, coord‑space + calibration —
+is unit‑tested OS‑independently; the per‑OS surfaces (AppKit on macOS, Win32 /
+UIA / WebView2 on Windows) are smoke‑validated on a real machine.
 
 ---
 
 ## How it's built
 
-One signed `.app` ships a single dispatching binary that runs as three things on
-demand: a **resident menu‑bar tray** (the app you launch), one **`serve` MCP
-process per connected client** (ephemeral, what the client spawns over stdio),
-and one shared **overlay** helper (singleton, reaped when idle). The pure logic
-is pyobjc‑free and portable; only the senses, actuator, gate, and overlay touch
-AppKit/Quartz. Full map in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+A single dispatching binary runs as a few things on demand: a **resident tray**
+(menu bar on macOS, notification area on Windows — the app you launch), one
+**`serve` MCP process per connected client** (ephemeral, spawned over stdio), a
+shared **overlay** helper, and the **face** panel. The pure core is OS‑agnostic;
+a `backends` selector resolves the platform organs — Quartz / AppKit / pyobjc on
+macOS, Win32 / Pillow BitBlt / UI Automation / PySide6 / WebView2 on Windows —
+behind one seam, so the core never imports a platform module. On Windows the MCP
+server is a separate **console** exe (`daimon-mcp.exe`); a GUI‑subsystem exe
+can't speak stdio. Full map in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ## Contributing
 
@@ -229,4 +268,4 @@ never let the AI raise its own ceiling).
 network service, the AGPL requires you to offer your users its source.
 
 Reference & kinship: [Omi](https://github.com/BasedHardware/omi) —
-perception/action decoupled on macOS via the Accessibility API.
+perception/action decoupled via the OS accessibility API.
