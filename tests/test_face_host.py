@@ -28,9 +28,27 @@ class _FakeBridge:
         return {"ok": True, "reason": ""}
 
 
+class _FakeAdapter:
+    def __init__(self):
+        self.calls = []
+
+    def apply_vibrancy(self, window, *, dark=True, radius=20):
+        self.calls.append(("vibrancy", dark))
+
+    def exclude_from_capture(self, window):
+        self.calls.append(("exclude",))
+
+    def anchor_under_statusitem(self, window, statusitem):
+        self.calls.append(("anchor",))
+
+
+def _host(fw, bridge=None):
+    return FaceHost(bridge or _FakeBridge(), webview_module=fw, adapter=_FakeAdapter())
+
+
 def test_open_panel_creates_frameless_window_with_bridge():
     fw = _FakeWebview()
-    host = FaceHost(_FakeBridge(), webview_module=fw)
+    host = _host(fw)
     host.open_panel()
     w = fw.created[-1]
     assert w["frameless"] is True
@@ -41,7 +59,7 @@ def test_open_panel_creates_frameless_window_with_bridge():
 
 def test_open_overlay_requests_transparent_on_top():
     fw = _FakeWebview()
-    FaceHost(_FakeBridge(), webview_module=fw).open_overlay()
+    _host(fw).open_overlay()
     w = fw.created[-1]
     assert w["frameless"] is True
     assert w["kw"].get("transparent") is True
@@ -50,14 +68,14 @@ def test_open_overlay_requests_transparent_on_top():
 
 def test_open_onboarding_is_a_normal_window():
     fw = _FakeWebview()
-    FaceHost(_FakeBridge(), webview_module=fw).open_onboarding()
+    _host(fw).open_onboarding()
     w = fw.created[-1]
     assert w["url"].endswith("onboarding/index.html")
 
 
 def test_push_state_dispatches_state_event_to_open_windows():
     fw = _FakeWebview()
-    host = FaceHost(_FakeBridge(), webview_module=fw)
+    host = _host(fw)
     host.open_panel()
     host.push_state()
     evaluated = fw.created[-1]["window"].evaluated
@@ -66,7 +84,7 @@ def test_push_state_dispatches_state_event_to_open_windows():
 
 
 def test_push_state_is_noop_when_no_window_open():
-    host = FaceHost(_FakeBridge(), webview_module=_FakeWebview())
+    host = _host(_FakeWebview())
     host.push_state()  # must not raise
 
 
@@ -82,3 +100,10 @@ def test_dist_dir_resolves_source_when_not_frozen(monkeypatch):
     monkeypatch.delattr(host.sys, "_MEIPASS", raising=False)
     d = host._dist_dir()
     assert d.name == "dist" and d.parent.name == "web"
+
+
+def test_open_panel_applies_vibrancy():
+    fw = _FakeWebview()
+    adapter = _FakeAdapter()
+    FaceHost(_FakeBridge(), webview_module=fw, adapter=adapter).open_panel()
+    assert ("vibrancy", True) in adapter.calls

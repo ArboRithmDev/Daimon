@@ -27,7 +27,7 @@ function App() {
     if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.resize_to) return;
     requestAnimationFrame(() => {
       const h = document.getElementById("root").scrollHeight;
-      window.pywebview.api.resize_to(340, h);
+      window.pywebview.api.resize_to(322, h);
     });
   });
 
@@ -36,9 +36,9 @@ function App() {
     await refresh();
   }
 
-  // Small inset so the card's rounded corners + drop shadow float clear of the
-  // transparent window edge.
-  const shell = (child) => <div style={{ padding: 9 }}>{child}</div>;
+  // The card fills the window; native vibrancy provides the rounded frosted
+  // backdrop and the window provides the drop shadow — no inset needed.
+  const shell = (child) => <div style={{ padding: 0 }}>{child}</div>;
   if (!state) {
     return shell(
       <div style={{ padding: 20, fontFamily: "-apple-system, sans-serif", color: "#B66CFF",

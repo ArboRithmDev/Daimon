@@ -41,10 +41,23 @@ class FaceHost:
     tests pass a fake recording module.
     """
 
-    def __init__(self, bridge, webview_module=None) -> None:
+    def __init__(self, bridge, webview_module=None, adapter=None) -> None:
         self._bridge = bridge
         self._wv = webview_module
         self._windows: dict[str, object] = {}
+        if adapter is None:
+            from .platform import get_adapter
+            adapter = get_adapter()
+        self._adapter = adapter
+
+    def _on_shown(self, win, fn) -> None:
+        """Run a native tweak once the window exists (its NSWindow handle is set
+        on the 'shown' event). Guarded for fake webview windows without events."""
+        events = getattr(win, "events", None)
+        if events is not None and hasattr(events, "shown"):
+            events.shown += fn
+        else:
+            fn()  # no event system (tests) — call directly
 
     def _webview(self):
         if self._wv is None:
@@ -55,7 +68,7 @@ class FaceHost:
     # The panel card is 322px wide; the window is a touch wider/taller and
     # transparent so the rounded card floats (rest = desktop, then native
     # vibrancy). Auto-fit-to-content is a later refinement.
-    PANEL_W = 340
+    PANEL_W = 322
     PANEL_H = 780
 
     def open_panel(self):
@@ -70,6 +83,8 @@ class FaceHost:
         setter = getattr(self._bridge, "set_resizer", None)
         if setter is not None:
             setter(lambda w, h: win.resize(w, h))
+        # Frosted vibrancy backdrop once the native window exists.
+        self._on_shown(win, lambda: self._adapter.apply_vibrancy(win, dark=True))
         return win
 
     def open_overlay(self):

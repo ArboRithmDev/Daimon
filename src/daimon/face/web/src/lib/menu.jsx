@@ -112,7 +112,7 @@ export function Panel({ state, invoke }) {
   const l4 = ceiling.l4_active;
   const statusColor = l4 ? L4.color : accent;
   return (
-    <div style={{ width: 322, fontFamily: SF, color: C.text, borderRadius: 20, overflow: "hidden",
+    <div style={{ width: "100%", fontFamily: SF, color: C.text, borderRadius: 20, overflow: "hidden",
       background: C.bg,
       // L4 frames the whole panel in the hot autonomy colour so elevated mode is unmistakable.
       border: l4 ? `1px solid ${L4.color}` : `0.5px solid ${C.border}`,
