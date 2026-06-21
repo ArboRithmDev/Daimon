@@ -64,7 +64,7 @@ def test_save_writes_valid_json(tmp_path, monkeypatch):
     store = _store(tmp_path, monkeypatch)
     store.save(profile_from_displays("bureau", _DESK))
     raw = json.loads(profiles_path().read_text(encoding="utf-8"))
-    assert raw["version"] == 1
+    assert raw["version"] == 2
     assert raw["profiles"][0]["name"] == "bureau"
 
 

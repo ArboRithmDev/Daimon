@@ -73,9 +73,9 @@ def _resolve_point(x, y, display, space, max_width=720, region=None):
         return x, y
     if display is None:
         raise ValueError("space='image' requires a display index")
-    from .capture import screen
+    from . import backends
     from .capture.coordspace import CoordSpace
-    displays = screen.list_displays()
+    displays = backends.build_screen().list_displays()
     if display < 0 or display >= len(displays):
         raise IndexError(f"display {display} out of range (0..{len(displays) - 1})")
     d = displays[display]

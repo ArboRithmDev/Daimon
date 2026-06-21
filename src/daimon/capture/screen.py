@@ -21,6 +21,13 @@ class Display:
     `origin_x`/`origin_y` place the display's top-left in the global desktop
     space (negative for a display left of / above the main one); `dpi` is the
     effective dots-per-inch. Together they make image→global mapping deterministic.
+
+    `stable_id` is an OS-native, persistent identity for the physical panel
+    (empty when the platform has none). macOS leaves it empty and identifies an
+    environment by geometry alone; Windows fills it from the CCD monitor device
+    path (EDID-derived), so a saved calibration profile re-matches the same
+    physical monitors even after a resolution, DPI or port change reshuffles the
+    geometry. `calibration.environment_signature` folds it in when present.
     """
 
     index: int
@@ -31,6 +38,7 @@ class Display:
     origin_x: int = 0
     origin_y: int = 0
     dpi: int = 96
+    stable_id: str = ""
 
 
 @dataclass(frozen=True)

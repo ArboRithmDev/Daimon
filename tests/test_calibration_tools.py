@@ -12,6 +12,16 @@ from daimon.senses.calibration import profile_from_displays
 from daimon.senses.calibration_store import FakeProfileStore
 
 
+@pytest.fixture(autouse=True)
+def _seam_screen(monkeypatch):
+    """Route the screen seam at the (patched) macOS screen module so this
+    OS-agnostic test runs on Windows too (prod resolves via backends.build_screen,
+    which off macOS would return screen_win and bypass the patch)."""
+    import daimon.backends as backends
+    import daimon.capture.screen as screen
+    monkeypatch.setattr(backends, "build_screen", lambda: screen)
+
+
 _DESK = [
     Display(index=0, display_id=1, width=1920, height=1080, is_main=True,
             origin_x=0, origin_y=0, dpi=96),

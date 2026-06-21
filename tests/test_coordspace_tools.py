@@ -11,6 +11,20 @@ import pytest
 from daimon.capture.screen import Display, Frame
 
 
+@pytest.fixture(autouse=True)
+def _seam_screen(monkeypatch):
+    """Route the screen seam at the (patched) macOS screen module.
+
+    Production resolves the screen through ``backends.build_screen()``; off macOS
+    that returns ``screen_win`` (real monitors), so a test patching
+    ``daimon.capture.screen`` would never be seen. Point the seam at the patched
+    module so these OS-agnostic coord-space tests pass on Windows too.
+    """
+    import daimon.backends as backends
+    import daimon.capture.screen as screen
+    monkeypatch.setattr(backends, "build_screen", lambda: screen)
+
+
 # --- fake topology: a main display + one physically to its LEFT (negative origin)
 _DISPLAYS = [
     Display(index=0, display_id=1, width=1920, height=1080, is_main=True,

@@ -20,10 +20,12 @@ from __future__ import annotations
 
 # Shared pure types + crop (screen.py has no module-level OS import).
 from .screen import Display, Frame, crop_region
+# CCD native panel identity (pure ctypes, cheap to import; no win32 cost).
+from .display_identity_win import native_monitor_ids
 
 __all__ = [
     "Display", "Frame", "crop_region",
-    "display_from_monitor", "dpi_for_monitor",
+    "display_from_monitor", "dpi_for_monitor", "native_monitor_ids",
     "frontmost_bundle_id", "list_displays",
     "capture_display", "capture_main_display",
 ]
@@ -31,7 +33,7 @@ __all__ = [
 
 def display_from_monitor(index: int, monitor_handle: int,
                          rect: tuple[int, int, int, int], dpi: int,
-                         is_main: bool) -> Display:
+                         is_main: bool, stable_id: str = "") -> Display:
     """Build a Display from a Win32 monitor rect (left, top, right, bottom) + dpi.
 
     Pure: the rect's left/top *is* the global origin (read from GetMonitorInfo),
@@ -39,6 +41,10 @@ def display_from_monitor(index: int, monitor_handle: int,
     Windows backend feed the SAME coord-space as the macOS one (which reads it
     from CGDisplayBounds) — without it, every monitor reports origin (0, 0) and
     multi-display coord reprojection silently breaks.
+
+    `stable_id` is the CCD device path (Microsoft-native panel identity) so a
+    saved calibration profile re-matches the same monitors across resolution /
+    DPI / layout changes; empty when CCD is unavailable (falls back to geometry).
     """
     left, top, right, bottom = rect
     return Display(
@@ -50,6 +56,7 @@ def display_from_monitor(index: int, monitor_handle: int,
         origin_x=int(left),
         origin_y=int(top),
         dpi=int(dpi),
+        stable_id=str(stable_id or ""),
     )
 
 
@@ -127,13 +134,17 @@ def list_displays() -> list[Display]:
     DPI so coord reprojection is platform-identical with the macOS backend.
     """
     import win32api
+    native = native_monitor_ids()  # {gdi device name -> stable CCD device path}
     out: list[Display] = []
     for i, mon in enumerate(win32api.EnumDisplayMonitors()):
         hmon = mon[0]
         info = win32api.GetMonitorInfo(hmon)
         rect = info["Monitor"]  # (left, top, right, bottom)
         is_main = bool(info["Flags"] & 1)  # MONITORINFOF_PRIMARY
-        out.append(display_from_monitor(i, int(hmon), rect, dpi_for_monitor(i), is_main))
+        stable_id = native.get(info.get("Device", ""), "")
+        out.append(
+            display_from_monitor(i, int(hmon), rect, dpi_for_monitor(i),
+                                 is_main, stable_id=stable_id))
     return out
 
 

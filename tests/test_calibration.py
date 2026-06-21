@@ -173,5 +173,80 @@ def test_display_profile_to_dict_shape():
                         origin_x=-1920, origin_y=0, dpi=96)
     assert dp.to_dict() == {
         "index": 1, "width": 1920, "height": 1080, "is_main": False,
-        "origin_x": -1920, "origin_y": 0, "dpi": 96,
+        "origin_x": -1920, "origin_y": 0, "dpi": 96, "stable_id": "",
     }
+
+
+# --- native-identity regime (Windows CCD stable_id) -------------------------
+# When every display carries an OS-native panel id, the environment is identified
+# by the *set of physical panels*, not their geometry — so a saved profile
+# re-matches the same monitors across resolution / DPI / position changes.
+
+_WIN_DESK = [
+    Display(index=0, display_id=11, width=1920, height=1080, is_main=True,
+            origin_x=0, origin_y=0, dpi=96,
+            stable_id=r"\\?\DISPLAY#DELA0AB#5&abc#{GUID-A}"),
+    Display(index=1, display_id=22, width=2560, height=1440, is_main=False,
+            origin_x=1920, origin_y=0, dpi=144,
+            stable_id=r"\\?\DISPLAY#AUOE3AC#4&def#{GUID-B}"),
+]
+
+
+def test_native_signature_survives_resolution_and_dpi_change():
+    base = environment_signature(_WIN_DESK)
+    # same panels, but Windows changed resolution, DPI and even the arrangement
+    moved = [
+        Display(index=0, display_id=11, width=1280, height=720, is_main=True,
+                origin_x=0, origin_y=0, dpi=120,
+                stable_id=r"\\?\DISPLAY#DELA0AB#5&abc#{GUID-A}"),
+        Display(index=1, display_id=22, width=3840, height=2160, is_main=False,
+                origin_x=-3840, origin_y=0, dpi=192,
+                stable_id=r"\\?\DISPLAY#AUOE3AC#4&def#{GUID-B}"),
+    ]
+    assert environment_signature(moved) == base
+
+
+def test_native_signature_independent_of_probe_order():
+    assert environment_signature(list(reversed(_WIN_DESK))) == environment_signature(_WIN_DESK)
+
+
+def test_native_signature_differs_from_geometry_signature():
+    # two setups with identical geometry but different physical panels must NOT
+    # collide — geometry alone (macOS) can't tell them apart; the native id can.
+    same_geometry_other_panels = [
+        Display(index=0, display_id=11, width=1920, height=1080, is_main=True,
+                origin_x=0, origin_y=0, dpi=96,
+                stable_id=r"\\?\DISPLAY#OTHER1#1&xyz#{GUID-X}"),
+        Display(index=1, display_id=22, width=2560, height=1440, is_main=False,
+                origin_x=1920, origin_y=0, dpi=144,
+                stable_id=r"\\?\DISPLAY#OTHER2#2&xyz#{GUID-Y}"),
+    ]
+    assert environment_signature(same_geometry_other_panels) != environment_signature(_WIN_DESK)
+
+
+def test_partial_native_ids_fall_back_to_geometry():
+    # if any display lacks a native id, identity must rest on geometry, never on
+    # a mix that one missing id could silently flip.
+    partial = [
+        Display(index=0, display_id=11, width=1920, height=1080, is_main=True,
+                origin_x=0, origin_y=0, dpi=96,
+                stable_id=r"\\?\DISPLAY#DELA0AB#5&abc#{GUID-A}"),
+        Display(index=1, display_id=22, width=2560, height=1440, is_main=False,
+                origin_x=1920, origin_y=0, dpi=144, stable_id=""),
+    ]
+    geometry_twin = [
+        Display(index=0, display_id=99, width=1920, height=1080, is_main=True,
+                origin_x=0, origin_y=0, dpi=96, stable_id=""),
+        Display(index=1, display_id=98, width=2560, height=1440, is_main=False,
+                origin_x=1920, origin_y=0, dpi=144, stable_id=""),
+    ]
+    assert environment_signature(partial) == environment_signature(geometry_twin)
+
+
+def test_native_profile_round_trips_stable_id():
+    prof = profile_from_displays("bureau-win", _WIN_DESK)
+    again = EnvironmentProfile.from_dict(prof.to_dict())
+    assert again == prof
+    assert again.displays[0].stable_id == _WIN_DESK[0].stable_id
+    # a live re-probe of the same panels matches the saved profile
+    assert match_profile([again], _WIN_DESK) is again

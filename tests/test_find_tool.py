@@ -14,6 +14,16 @@ from daimon.senses.find import WordBox
 from daimon.senses.find_ocr import FakeOCR
 
 
+@pytest.fixture(autouse=True)
+def _seam_screen(monkeypatch):
+    """Route the screen seam at the (patched) macOS screen module so this
+    OS-agnostic test runs on Windows too (prod resolves via backends.build_screen,
+    which off macOS would return screen_win and bypass the patch)."""
+    import daimon.backends as backends
+    import daimon.capture.screen as screen
+    monkeypatch.setattr(backends, "build_screen", lambda: screen)
+
+
 class _FakeExclusions:
     def evaluate_frontmost(self, bundle):
         class _G:

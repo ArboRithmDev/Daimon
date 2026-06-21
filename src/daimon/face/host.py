@@ -29,8 +29,11 @@ def _surface_url(surface: str) -> str:
     """Local filesystem path of a built surface's index.html. Loaded through
     pywebview's http server (start(http_server=True)) so the origin is
     http://127.0.0.1 — where the strict CSP `default-src 'self'` permits the
-    bundle, unlike a null `file://` origin which blocks it."""
-    return str(_dist_dir() / surface / "index.html")
+    bundle, unlike a null `file://` origin which blocks it.
+
+    Returned as a POSIX path (forward slashes) so the URL is identical on Windows
+    and macOS — the served origin must not depend on the host path separator."""
+    return (_dist_dir() / surface / "index.html").as_posix()
 
 
 class FaceHost:

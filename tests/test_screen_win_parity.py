@@ -65,3 +65,47 @@ def test_win_backend_shares_pure_shapes_with_mac():
     # Single source of truth: the win twin re-exports the mac dataclasses.
     assert screen_win.Display is Display
     assert screen_win.Frame is Frame
+
+
+def test_display_from_monitor_carries_stable_id():
+    # The CCD device path rides through into the Display so calibration can
+    # identify the physical panel natively.
+    d = screen_win.display_from_monitor(
+        index=0, monitor_handle=1, rect=(0, 0, 1920, 1080), dpi=96, is_main=True,
+        stable_id=r"\\?\DISPLAY#DELA0AB#5&abc#{GUID}",
+    )
+    assert d.stable_id == r"\\?\DISPLAY#DELA0AB#5&abc#{GUID}"
+
+
+def test_display_from_monitor_stable_id_defaults_empty():
+    # No CCD identity available -> empty, calibration falls back to geometry.
+    d = screen_win.display_from_monitor(
+        index=0, monitor_handle=1, rect=(0, 0, 1920, 1080), dpi=96, is_main=True,
+    )
+    assert d.stable_id == ""
+
+
+def test_native_monitor_ids_is_best_effort():
+    # Pure ctypes against user32: returns a dict on Windows (gdi name -> device
+    # path), and degrades to {} anywhere the CCD API is unavailable — never raises.
+    ids = screen_win.native_monitor_ids()
+    assert isinstance(ids, dict)
+    if sys.platform == "win32":
+        for gdi, path in ids.items():
+            assert gdi.startswith(r"\\.\DISPLAY")
+            assert path  # a non-empty stable device path
+
+
+def test_live_displays_are_natively_identified_on_windows():
+    # End-to-end on a real Windows host: each live display carries its CCD id
+    # and the environment signature is the native (panel-set) regime.
+    if sys.platform != "win32":
+        pytest.skip("real CCD identity only on Windows")
+    from daimon.senses.calibration import environment_signature
+    displays = screen_win.list_displays()
+    assert displays
+    # On a normal desktop CCD is available; if a host has none, fall back is fine.
+    if all(d.stable_id for d in displays):
+        from dataclasses import replace
+        bumped = [replace(d, width=d.width // 2 or 1, dpi=d.dpi + 24) for d in displays]
+        assert environment_signature(bumped) == environment_signature(displays)

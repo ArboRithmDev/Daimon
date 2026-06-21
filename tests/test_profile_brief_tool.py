@@ -7,9 +7,21 @@ without any geometric reasoning. Wired against fake displays + a
 FakeProfileStore — no real screen, no disk.
 """
 
+import pytest
+
 from daimon.capture.screen import Display
 from daimon.senses.calibration import profile_from_displays
 from daimon.senses.calibration_store import FakeProfileStore
+
+
+@pytest.fixture(autouse=True)
+def _seam_screen(monkeypatch):
+    """Route the screen seam at the (patched) macOS screen module so this
+    OS-agnostic test runs on Windows too (prod resolves via backends.build_screen,
+    which off macOS would return screen_win and bypass the patch)."""
+    import daimon.backends as backends
+    import daimon.capture.screen as screen
+    monkeypatch.setattr(backends, "build_screen", lambda: screen)
 
 
 _DESK = [

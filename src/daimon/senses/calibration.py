@@ -27,7 +27,9 @@ from dataclasses import dataclass
 from ..capture.coordspace import CoordSpace
 
 #: bump if the serialized profile schema changes shape
-PROFILE_SCHEMA_VERSION = 1
+#: v2 — adds per-display `stable_id` (Windows CCD device path) + native-identity
+#: signature regime; pre-release, no stored profiles to migrate.
+PROFILE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,11 @@ class DisplayProfile:
     dpi, main-flag) but drops the volatile `display_id`/`index` from identity —
     `index` is kept only as the stable position in the captured list so the
     coord resolution can address "display k" the same way a live probe would.
+
+    `stable_id` is the OS-native persistent panel identity (Windows CCD device
+    path; empty on macOS). When present it carries the environment identity, so
+    a profile re-matches the same monitors across geometry changes (see
+    `environment_signature`).
     """
 
     index: int
@@ -47,6 +54,7 @@ class DisplayProfile:
     origin_x: int
     origin_y: int
     dpi: int
+    stable_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -57,6 +65,7 @@ class DisplayProfile:
             "origin_x": self.origin_x,
             "origin_y": self.origin_y,
             "dpi": self.dpi,
+            "stable_id": self.stable_id,
         }
 
     @classmethod
@@ -69,6 +78,7 @@ class DisplayProfile:
             origin_x=int(d["origin_x"]),
             origin_y=int(d["origin_y"]),
             dpi=int(d["dpi"]),
+            stable_id=str(d.get("stable_id", "")),
         )
 
 
@@ -113,18 +123,39 @@ def _layout_key(displays) -> list[tuple]:
     )
 
 
-def environment_signature(displays) -> str:
-    """Deterministic 16-hex signature of a topology (count + per-display layout).
+def _native_ids(displays) -> list[str]:
+    """The OS-native stable panel ids, but only if EVERY display carries one.
 
-    Accepts either live `Display`s or `DisplayProfile`s — only the geometry
-    fields are read, which both expose. Same physical arrangement -> same hash,
-    regardless of order, display_id, or active-list index.
+    On Windows each display has a CCD device-path `stable_id`; on macOS none do.
+    Returning a non-empty list signals "identify this environment natively" —
+    a partial set (some blank) falls back to geometry so identity never rests on
+    a mix that a single missing id could silently change.
     """
-    payload = json.dumps(
-        {"count": len(list(displays)), "layout": _layout_key(displays)},
-        separators=(",", ":"),
-        sort_keys=True,
+    ids = [getattr(d, "stable_id", "") or "" for d in displays]
+    return ids if all(ids) else []
+
+
+def environment_signature(displays) -> str:
+    """Deterministic 16-hex signature of a topology.
+
+    Accepts either live `Display`s or `DisplayProfile`s. Two regimes:
+
+    - **OS-native identity** (Windows): when every display exposes a `stable_id`
+      (its CCD monitor device path), the signature is the *set of physical
+      panels* — independent of resolution, DPI, position or active-list order.
+      Re-plugging the same monitors re-matches the saved profile even if Windows
+      reshuffled the arrangement.
+    - **Geometry** (macOS, no native id): the order-independent per-display
+      layout, as before — same physical arrangement -> same hash.
+    """
+    displays = list(displays)
+    native = _native_ids(displays)
+    body = (
+        {"count": len(displays), "panels": sorted(native)}
+        if native
+        else {"count": len(displays), "layout": _layout_key(displays)}
     )
+    payload = json.dumps(body, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -132,7 +163,8 @@ def profile_from_displays(name: str, displays) -> EnvironmentProfile:
     """Freeze a live display list into a named profile (capture step).
 
     Displays are stored in their captured order; the signature is computed from
-    the order-independent layout so a later probe in any order still matches.
+    the order-independent layout (or native panel ids on Windows) so a later
+    probe in any order still matches.
     """
     dps = tuple(
         DisplayProfile(
@@ -143,6 +175,7 @@ def profile_from_displays(name: str, displays) -> EnvironmentProfile:
             origin_x=d.origin_x,
             origin_y=d.origin_y,
             dpi=d.dpi,
+            stable_id=getattr(d, "stable_id", "") or "",
         )
         for d in displays
     )
