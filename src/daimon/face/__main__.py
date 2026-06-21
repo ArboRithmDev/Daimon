@@ -45,7 +45,8 @@ def main() -> int:
     bridge = FaceBridge(ActionRouter(handlers), gather)
     host = FaceHost(bridge, webview_module=webview)
     host.open_panel()
-    webview.start(debug="--debug" in sys.argv)  # --debug opens the web inspector
+    # http_server: serve the bundle over http://127.0.0.1 so CSP 'self' permits it.
+    webview.start(http_server=True, debug="--debug" in sys.argv)
     return 0
 
 

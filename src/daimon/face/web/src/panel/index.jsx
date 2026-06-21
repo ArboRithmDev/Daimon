@@ -26,6 +26,16 @@ function App() {
     await refresh();
   }
 
+  if (!state) {
+    return (
+      <div style={{ padding: 20, fontFamily: "-apple-system, sans-serif", color: "#B66CFF",
+        fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#B66CFF",
+          boxShadow: "0 0 8px #B66CFF", animation: "daimonPulse 1.2s ease-in-out infinite" }} />
+        Daimon — connecting…
+      </div>
+    );
+  }
   return <Panel state={state} invoke={invoke} />;
 }
 

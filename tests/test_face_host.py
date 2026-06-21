@@ -36,7 +36,7 @@ def test_open_panel_creates_frameless_window_with_bridge():
     assert w["frameless"] is True
     assert isinstance(w["js_api"], _FakeBridge)
     assert w["url"].endswith("panel/index.html")
-    assert w["url"].startswith("file://")
+    assert not w["url"].startswith("file://")  # served over http; CSP 'self' needs a real origin
 
 
 def test_open_overlay_requests_transparent_on_top():

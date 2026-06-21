@@ -26,8 +26,11 @@ def _dist_dir() -> Path:
 
 
 def _surface_url(surface: str) -> str:
-    """file:// URL of a built surface's index.html."""
-    return (_dist_dir() / surface / "index.html").as_uri()
+    """Local filesystem path of a built surface's index.html. Loaded through
+    pywebview's http server (start(http_server=True)) so the origin is
+    http://127.0.0.1 — where the strict CSP `default-src 'self'` permits the
+    bundle, unlike a null `file://` origin which blocks it."""
+    return str(_dist_dir() / surface / "index.html")
 
 
 class FaceHost:
