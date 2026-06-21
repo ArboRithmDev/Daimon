@@ -151,6 +151,14 @@ if [[ $DO_NOTARIZE -eq 1 && $DO_SIGN -eq 1 ]]; then
     xcrun stapler staple "$DMG_PATH"
 fi
 
+# 7. Release manifest (macOS entry). Merges the macOS asset into
+#    dist/latest.json + dist/SHA256SUMS — the updater fetches latest.json from
+#    the GitHub "latest" release. Runs whether or not signing ran: it only needs
+#    the DMG and its sha256. On a cross-platform release, copy the other
+#    platform's dist/latest.json here first so the merge carries BOTH entries.
+python3 "$REPO_ROOT/build/make_manifest.py" --version "$VERSION" --out "$DIST_DIR" \
+    --platform macos --asset "$DMG_PATH" ${NOTES:+--notes "$NOTES"}
+
 if [[ "${KEEP_MACOS_BUILD_PRODUCTS:-0}" != "1" ]]; then
     rm -rf "$DMG_ROOT" "$APP_BUNDLE" "$DIST_DIR/Daimon"
 fi
