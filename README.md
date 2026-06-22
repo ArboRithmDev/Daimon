@@ -6,9 +6,9 @@
 
 **Give any AI eyes, hands, and a face on your desktop — safely.**
 
-A local daemon for **macOS and Windows** that lets any MCP‑capable AI client
-*see* your screen, *act* on it, and *show* you what it's doing — under a safety
-ceiling **Daimon enforces itself**.
+One local daemon, two platforms (**macOS** & **Windows**), zero lock‑in: any
+MCP‑capable AI client can *see* your screen, *act* on it, and *show* you what
+it's doing — all under a safety ceiling **Daimon enforces itself**, never the AI.
 
 [![Release](https://img.shields.io/github/v/release/ArboRithmDev/Daimon?include_prereleases&sort=semver&label=release)](https://github.com/ArboRithmDev/Daimon/releases/latest)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -92,21 +92,31 @@ Tools: `overlay_highlight`, `overlay_spotlight`, `overlay_cursor`,
 ## Security model
 
 Daimon is built so an AI can act on your machine *safely*. The guarantees are
-enforced in Daimon, not requested from the AI:
+enforced in Daimon's own code, on observed facts — never requested from, or
+trusted to, the AI — and they hold the same on **macOS and Windows**:
 
 - **Daimon owns the ceiling, not the client.** Any AI plugs in; none is trusted.
-  The AI cannot raise its own limit.
+  It can only *request* an action — Daimon decides. A read‑only `main_ceiling`
+  lets a client see the limit and declare an above‑ceiling intent up front,
+  rather than discover it by hitting the gate.
 - **Points of no return** (send / delete / pay / drop‑on‑Trash …) are classified
   on the **observed** element — the AI re‑probes the real target, so a lying
-  agent can't dodge the gate by mislabelling a button — and gated by a **native
-  OS confirmation** (a macOS dialog; a Windows Secure Desktop prompt). Timeout = deny.
-- **L4 full autonomy** unlocks only when a human types an engagement phrase
-  out‑of‑band; consent is recorded in an append‑only, hash‑chained ledger.
-  `no‑log = no‑act`, and a forged state file cannot escalate to L4.
-- **Secrets never leave.** Secret‑role fields (macOS `AXSecureTextField` /
-  Windows UIA password fields) and declared apps are blanked in Touché and
-  blacked out in Vue, *before* anything is served.
-- **Kill it at any time.** The physical override always wins.
+  agent can't dodge the gate by mislabelling a button — then gated by a **native
+  OS confirmation the agent can't self‑answer**: a macOS dialog, or on Windows a
+  prompt on an **isolated separate desktop** (the mechanism UAC uses), so the
+  agent's synthetic input can't click *Yes* for you. **Timeout = deny.**
+- **L4 full autonomy is engaged out of band, by a human** — either a typed
+  engagement phrase (`daimon.motor.control`) or a native consent dialog from the
+  menu‑bar / tray panel. Every engage *and* disengage is written to an
+  append‑only, **hash‑chained ledger**; `no‑log = no‑act`, and a forged or edited
+  state file fails the ledger cross‑check and cannot escalate to L4.
+- **Secrets never leave — and can't be acted on.** Secret‑role fields (macOS
+  `AXSecureTextField` / Windows UIA password fields), declared apps, and screen
+  regions are blanked in Touché and blacked out in Vue *before* anything is
+  served — and the **same exclusions refuse Hands actions** aimed at an excluded
+  region or a secret target, at every ceiling.
+- **Kill it at any time.** The physical override always wins. Default ceiling is
+  **L0** — hands off.
 
 Full threat model and the enforcement chain: **[SECURITY.md](SECURITY.md)**.
 To report a vulnerability privately, see the same file.
