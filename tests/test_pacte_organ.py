@@ -1,6 +1,5 @@
 # tests/test_pacte_organ.py
 from pathlib import Path
-import pytest
 
 from daimon.config import ExclusionConfig
 from daimon.exclusions import ExclusionFilter
@@ -80,6 +79,34 @@ def test_act_above_session_ceiling_is_refused(tmp_path):
         rec = _Recorder(); p.register(rec)
         rec.tools["pacte_describe"]()
         out = rec.tools["pacte_act"](verb="wipe", args={}, intent="x", level=int(Level.AUTONOMOUS))
+        assert out["status"] == "refused"
+    finally:
+        fake.stop()
+
+
+def test_describe_failure_does_not_open_session(tmp_path):
+    """If the handshake (describe call) fails, the session must NOT be opened."""
+    from daimon.pacte.discovery import Endpoint
+    from daimon.pacte.protocol import ProtocolError
+    # Start a fake with token "real" but build the Pacte pointing at token "wrong",
+    # so the fake returns a JSON-RPC error → ProtocolError on client.call("describe").
+    fake = FakeCooperativeEndpoint(token="real")
+    ep_real = fake.start()
+    try:
+        bad_ep = Endpoint(port=ep_real.port, token="wrong", pid=1, app="delta", protocol_version="1.0")
+        p = _build(tmp_path, bad_ep)
+        rec = _Recorder(); p.register(rec)
+
+        raised = False
+        try:
+            rec.tools["pacte_describe"]()
+        except ProtocolError:
+            raised = True
+        assert raised, "pacte_describe should propagate the ProtocolError"
+
+        # Session must be inactive and act must refuse.
+        assert not p._session.active(), "session must not be open after a failed handshake"
+        out = rec.tools["pacte_act"](verb="drag", args={}, intent="x", level=2)
         assert out["status"] == "refused"
     finally:
         fake.stop()

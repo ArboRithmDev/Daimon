@@ -27,7 +27,7 @@ def test_discover_skips_wrong_protocol_version(tmp_path):
 
 
 def test_discover_picks_newest(tmp_path):
-    import os, time
+    import os
     a = _write(tmp_path, "delta-1.json", port=1)
     b = _write(tmp_path, "delta-2.json", port=2)
     os.utime(a, (1, 1))

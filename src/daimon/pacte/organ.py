@@ -17,7 +17,7 @@ from .client import CooperativeClient
 from .discovery import discover
 from .session import CooperativeSession
 
-# Probe payload keys that carry node-shaped lists to run through redaction.
+# NOTE: redaction covers these node-bearing keys only; extend this tuple if the probe protocol grows new node-shaped keys (else their text bypasses redaction).
 _NODE_LISTS = ("items", "decorators", "selected")
 
 
@@ -44,10 +44,11 @@ class Pacte:
             if ep is None:
                 self._client = self._organ = None
                 return {"connected": False, "reason": "no cooperative app found (launch it with --dev)"}
-            self._client = CooperativeClient(ep)
-            self._organ = self._motor_factory(self._client)
+            client = CooperativeClient(ep)
+            manifest = client.call("describe", {})
+            self._client = client
+            self._organ = self._motor_factory(client)
             self._session.open(app=ep.app, pid=ep.pid)
-            manifest = self._client.call("describe", {})
             return {"connected": True, "app": ep.app, "manifest": manifest}
 
         @mcp.tool(name="pacte_probe", description=(
