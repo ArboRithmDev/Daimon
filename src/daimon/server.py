@@ -346,6 +346,15 @@ def _register_motor(mcp) -> None:
         return ceiling_report(organ.current_ceiling())
 
 
+def _register_pacte(mcp) -> None:
+    """Wire the optional cooperative channel tools; never break startup if unavailable."""
+    try:
+        from .pacte.factory import build_pacte
+        build_pacte().register(mcp)
+    except Exception:  # cooperative channel is optional; a build failure must not kill the server
+        pass
+
+
 def build_server() -> FastMCP:
     """Assemble the FastMCP server with every sense and organ registered."""
     config = load_config()
@@ -362,6 +371,7 @@ def build_server() -> FastMCP:
 
     _register_motor(mcp)
     _register_overlay(mcp)
+    _register_pacte(mcp)
 
     return mcp
 

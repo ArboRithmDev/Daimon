@@ -41,3 +41,16 @@ def config_dir() -> Path:
 def logs_dir() -> Path:
     """Where the audit and app logs are written."""
     return data_dir() / "logs"
+
+
+def cooperative_dir() -> Path:
+    """Fixed cross-app rendezvous where cooperating apps drop their --dev discovery files.
+
+    Deliberately a stable, well-known path (~/.daimon/cooperative) rather than Daimon's
+    platform-specific data_dir(): a cooperating app (e.g. Delta) must be able to find it
+    without knowing Daimon's install location. $DAIMON_COOPERATIVE_DIR overrides it (tests).
+    """
+    env = os.environ.get("DAIMON_COOPERATIVE_DIR")
+    root = Path(env).expanduser() if env else (Path.home() / ".daimon" / "cooperative")
+    root.mkdir(parents=True, exist_ok=True)
+    return root
