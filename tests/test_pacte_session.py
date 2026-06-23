@@ -42,3 +42,39 @@ def test_gate_confirms_within_ceiling_only_when_open(tmp_path):
     s.open(app="delta", pid=1)
     assert gate.confirm(_action(Level.INPUT)) is True           # within ceiling
     assert gate.confirm(_action(Level.AUTONOMOUS)) is False     # above ceiling
+
+
+def test_double_open_idempotent(tmp_path):
+    led = _ledger(tmp_path)
+    s = CooperativeSession(led, clock=lambda: "ts")
+    s.open(app="delta", pid=42)
+    s.open(app="delta", pid=42)
+    recs = led._records()
+    # Only one "cooperative_open" record should exist
+    open_recs = [r for r in recs if r["event"] == "cooperative_open"]
+    assert len(open_recs) == 1
+
+
+def test_close_when_closed_idempotent(tmp_path):
+    led = _ledger(tmp_path)
+    s = CooperativeSession(led, clock=lambda: "ts")
+    s.close()
+    s.close()
+    recs = led._records()
+    # No "cooperative_close" record should exist (session was never open)
+    close_recs = [r for r in recs if r["event"] == "cooperative_close"]
+    assert len(close_recs) == 0
+
+
+def test_open_then_close_idempotent(tmp_path):
+    led = _ledger(tmp_path)
+    s = CooperativeSession(led, clock=lambda: "ts")
+    s.open(app="delta", pid=42)
+    s.close()
+    assert s.active() is False
+    assert s.ceiling() == Level.READ
+    recs = led._records()
+    assert recs[-1]["event"] == "cooperative_close"
+    # Verify only one close record exists
+    close_recs = [r for r in recs if r["event"] == "cooperative_close"]
+    assert len(close_recs) == 1

@@ -22,12 +22,16 @@ class CooperativeSession:
 
     def open(self, app: str, pid: int) -> None:
         """Begin a session: one ledger entry pre-authorizes acts up to the session ceiling."""
+        if self._active:
+            return
         self._ledger.append({"event": "cooperative_open", "ts": self._clock(),
                              "app": app, "pid": pid, "ceiling": self._ceiling.name})
         self._active = True
 
     def close(self) -> None:
         """End the session; record it. Acts refuse again until the next open()."""
+        if not self._active:
+            return
         self._ledger.append({"event": "cooperative_close", "ts": self._clock()})
         self._active = False
 
