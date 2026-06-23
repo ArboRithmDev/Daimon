@@ -25,7 +25,8 @@ class CooperativeClient:
             with socket.create_connection(("127.0.0.1", self._ep.port), timeout=timeout) as s:
                 s.settimeout(timeout)
                 s.sendall((json.dumps(req) + "\n").encode("utf-8"))
-                raw = s.makefile("r").readline()
+                with s.makefile("r") as f:
+                    raw = f.readline()
         except OSError as e:
             raise ProtocolError(f"transport failure: {e}") from e
         if not raw:
