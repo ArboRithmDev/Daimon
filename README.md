@@ -199,6 +199,7 @@ What your AI sees once Daimon is connected.
 | `main_activate` | ✋ | Bring an app/window frontmost. |
 | `main_mouse_down`/`up`, `main_key_down`/`up` | ✋ | Held‑input primitives (L4 only, watchdog auto‑release). |
 | `overlay_*` | 🪞 | Highlight, spotlight, cursor halo, banner, clear. |
+| `pacte_describe`, `pacte_probe`, `pacte_act` | 🤝 | Pacte — a cooperative channel: drive and observe an app that opts in via a `--dev` endpoint (used for autonomous end-to-end testing), app-agnostic, with the same Hands ceiling, audit ledger, and secret redaction as the other organs. |
 
 Every motor tool takes an `intent` string and a `reversible` declaration;
 Daimon **verifies** reversibility on the observed target rather than trusting the

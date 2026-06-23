@@ -121,6 +121,9 @@ def build_server_instructions() -> str:
         "Daimon is a local perception + action organ for any AI client: see the screen "
         "(vue_*), read the accessibility tree (touche_*), act with the Hands (main_*), and "
         "show overlays (overlay_*). It is pull-only and calls no AI itself.\n\n"
+        "Pacte (cooperative channel): pacte_describe/pacte_probe/pacte_act drive and observe "
+        "an app that exposes a --dev endpoint — generic and app-agnostic; acts pass through "
+        "the same Hands ceiling + audit ledger, probe output is redacted.\n\n"
         + using_daimon_note()
         + "\n\n"
         + delegation_protocol_text()
