@@ -1,5 +1,12 @@
 # Plan — Pacte v1.1 Delta facilitators (Daimon side, TDD)
 
+**STATUS: DONE (2026-06-24).** All 7 capabilities shipped on `internal`. Suite 551
+passed / 18 skipped (was 522). New tools `pacte_capture/pacte_expect/pacte_events`;
+verbs `set_prop`/`set_motion` + fields `inspector/tree/serialized/quiescent` ride the
+generic act/probe. pid liveness added to discovery. Live tests against a real Delta
+`--dev` remain pending per the interop note (unit fake-server proofs stand).
+
+
 Spec: `docs/superpowers/specs/2026-06-24-pacte-delta-facilitators-v1.1.md`.
 Branch `internal`. Method: red → minimal impl → green → commit, one capability per commit.
 Test runner: `/Users/Ben/.hfenv/bin/pytest`. Mock Delta with the fake endpoint double.
