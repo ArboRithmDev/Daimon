@@ -7,8 +7,13 @@ by the durable session consent rather than a per-action dialog.
 
 from __future__ import annotations
 
+import base64
+import json
 from pathlib import Path
 from typing import Callable
+
+from mcp.server.fastmcp import Image as MCPImage
+from mcp.types import TextContent
 
 from ..exclusions import ExclusionFilter
 from ..motor.organ import MotorOrgan
@@ -62,6 +67,23 @@ class Pacte:
                 if isinstance(payload.get(key), list):
                     payload[key] = self._exclusions.redact_nodes(payload[key])
             return payload
+
+        @mcp.tool(name="pacte_capture", description=(
+            "Capture targeted SCENE pixels from the cooperating app and RETURN them as an "
+            "image you look at yourself (like vue_snapshot). `target` is a node_id, "
+            "{\"scene\":{x,y,w,h}}, or \"viewport\". `max_width` downscales keeping ratio "
+            "(default 1024); `padding` adds scene-unit margin around a node bbox. Read-only "
+            "(Hands level 0); secret-zone items are painted neutral by the app. Returns a "
+            "scene_rect metadata block + the PNG. Refused outside an open cooperative session."))
+        def pacte_capture(target, max_width: int = 1024, padding: int = 0) -> list | dict:
+            if self._client is None:
+                return {"status": "refused", "reason": "no cooperative session (call pacte_describe first)"}
+            res = self._client.call("capture", {"target": target, "max_width": max_width, "padding": padding})
+            png = base64.b64decode(res["image_base64"])
+            meta = {"scene_rect": res.get("scene_rect"), "width": res.get("width"),
+                    "height": res.get("height"), "mime": res.get("mime", "image/png")}
+            return [TextContent(type="text", text=json.dumps(meta)),
+                    MCPImage(data=png, format="png")]
 
         @mcp.tool(name="pacte_act", description=(
             "Invoke an app verb (drag/resize/marquee/click/load_fixture/shortcut). Routed through "

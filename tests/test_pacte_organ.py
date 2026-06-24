@@ -112,6 +112,44 @@ def test_describe_failure_does_not_open_session(tmp_path):
         fake.stop()
 
 
+def test_capture_returns_image_and_scene_rect(tmp_path):
+    import base64
+    import json as _json
+
+    from mcp.server.fastmcp import Image as MCPImage
+    from mcp.types import TextContent
+    from tests.fakes.cooperative_endpoint import _PNG_1X1
+
+    fake = FakeCooperativeEndpoint(token="secret")
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        p = _build(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"))
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        out = rec.tools["pacte_capture"](target="viewport")
+        # [TextContent(scene_rect), MCPImage]
+        assert isinstance(out[0], TextContent) and isinstance(out[1], MCPImage)
+        meta = _json.loads(out[0].text)
+        assert meta["scene_rect"] == {"x": 0, "y": 0, "w": 1, "h": 1}
+        assert meta["width"] == 1 and meta["height"] == 1
+        assert out[1].data == base64.b64decode(_PNG_1X1)
+        # the wire call carried target + default max_width
+        cap_req = [r for r in fake.requests if r["method"] == "capture"][-1]
+        assert cap_req["params"]["target"] == "viewport"
+        assert cap_req["params"]["max_width"] == 1024
+    finally:
+        fake.stop()
+
+
+def test_capture_refused_without_session(tmp_path):
+    p = Pacte(_exclusions(), CooperativeSession(AppendOnlyLedger(tmp_path / "c.jsonl"), lambda: "ts"),
+              lambda c: None, discover_fn=lambda _d: None, cooperative_dir=tmp_path)
+    rec = _Recorder(); p.register(rec)
+    out = rec.tools["pacte_capture"](target="viewport")
+    assert out["status"] == "refused"
+
+
 def test_probe_redacts_excluded_titles(tmp_path):
     fake = FakeCooperativeEndpoint(token="secret")
     fake.handlers["describe"] = lambda p: {"act_verbs": []}
