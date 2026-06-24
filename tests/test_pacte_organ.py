@@ -227,6 +227,47 @@ def test_expect_refused_without_session(tmp_path):
     assert out["status"] == "refused"
 
 
+def test_probe_events_passthrough(tmp_path):
+    fake = FakeCooperativeEndpoint(token="secret")
+    fake.push_event("command", "AddNode", node_id="n1", summary="add n1")
+    fake.push_event("event", "NodeMutated", node_id="n1", summary="moved")
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        p = _build(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"))
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        out = rec.tools["pacte_probe"](fields=["events"])
+        assert [e["type"] for e in out["events"]] == ["AddNode", "NodeMutated"]
+    finally:
+        fake.stop()
+
+
+def test_events_since_returns_delta(tmp_path):
+    fake = FakeCooperativeEndpoint(token="secret")
+    for i in range(3):
+        fake.push_event("command", f"C{i}", node_id=None, summary="")
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        p = _build(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"))
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        out = rec.tools["pacte_events"](since=1)
+        assert [e["seq"] for e in out["events"]] == [2, 3]
+        req = [r for r in fake.requests if r["method"] == "probe"][-1]
+        assert req["params"]["events_since"] == 1
+    finally:
+        fake.stop()
+
+
+def test_events_refused_without_session(tmp_path):
+    p = Pacte(_exclusions(), CooperativeSession(AppendOnlyLedger(tmp_path / "c.jsonl"), lambda: "ts"),
+              lambda c: None, discover_fn=lambda _d: None, cooperative_dir=tmp_path)
+    rec = _Recorder(); p.register(rec)
+    assert rec.tools["pacte_events"]()["status"] == "refused"
+
+
 def test_capture_refused_without_session(tmp_path):
     p = Pacte(_exclusions(), CooperativeSession(AppendOnlyLedger(tmp_path / "c.jsonl"), lambda: "ts"),
               lambda c: None, discover_fn=lambda _d: None, cooperative_dir=tmp_path)

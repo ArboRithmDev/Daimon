@@ -87,6 +87,18 @@ class Pacte:
             return [TextContent(type="text", text=json.dumps(meta)),
                     MCPImage(data=png, format="png")]
 
+        @mcp.tool(name="pacte_events", description=(
+            "Read the app's recent command/event log to verify causality — catch the dominant "
+            "bug class 'visual mutation with NO command/undo'. Returns {events:[{seq,kind:"
+            "command|event,type,node_id,summary}]} in chronological order. Pass `since` (a seq) "
+            "to get only newer entries (seq>since) — diff the log around an edit. Refused outside "
+            "an open cooperative session."))
+        def pacte_events(since: int | None = None) -> dict:
+            if self._client is None:
+                return {"status": "refused", "reason": "no cooperative session (call pacte_describe first)"}
+            params = {"events_since": since} if since is not None else {"fields": ["events"]}
+            return self._client.call("probe", params)
+
         @mcp.tool(name="pacte_expect", description=(
             "Poll the cooperating app until a condition holds or timeout — kills temporal "
             "flakiness (no blind sleeps; the app never blocks). condition DSL: a leaf "
