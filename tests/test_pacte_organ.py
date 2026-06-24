@@ -142,6 +142,91 @@ def test_capture_returns_image_and_scene_rect(tmp_path):
         fake.stop()
 
 
+def _build_timed(tmp_path, fake_ep, clock, sleep):
+    exclusions = _exclusions()
+    led = AppendOnlyLedger(tmp_path / "c.jsonl")
+    session = CooperativeSession(led, clock=lambda: "ts")
+
+    def motor_factory(client):
+        guard = PolicyGuard(exclusions, ceiling_provider=session.ceiling)
+        return MotorOrgan(guard=guard, gate=CooperativeGate(session),
+                          actuator=CooperativeActuator(client),
+                          session_log=led, clock=lambda: "ts", prober=_NullProber())
+
+    return Pacte(exclusions, session, motor_factory,
+                 discover_fn=lambda _d: fake_ep, cooperative_dir=tmp_path,
+                 clock_ms=clock, sleep_ms=sleep)
+
+
+def test_expect_satisfies_after_polls(tmp_path):
+    fake = FakeCooperativeEndpoint(token="secret")
+    fake.state["quiescent"] = False
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        now = [0.0]; sleeps = [0]
+        def sleep(ms):
+            now[0] += ms; sleeps[0] += 1
+            if sleeps[0] == 3:
+                fake.state["quiescent"] = True
+        p = _build_timed(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"),
+                         clock=lambda: now[0], sleep=sleep)
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        out = rec.tools["pacte_expect"](condition={"quiescent": True}, timeout_ms=2000, poll_ms=50)
+        assert out["ok"] is True and out["satisfied"] is True
+        assert out["elapsed_ms"] == 150  # 3 polls * 50ms
+        assert out["final"]["quiescent"] is True
+        # probed only the referenced field
+        probe_reqs = [r for r in fake.requests if r["method"] == "probe"]
+        assert all(r["params"].get("fields") == ["quiescent"] for r in probe_reqs)
+    finally:
+        fake.stop()
+
+
+def test_expect_times_out(tmp_path):
+    fake = FakeCooperativeEndpoint(token="secret")
+    fake.state["quiescent"] = False
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        now = [0.0]
+        p = _build_timed(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"),
+                         clock=lambda: now[0], sleep=lambda ms: now.__setitem__(0, now[0] + ms))
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        out = rec.tools["pacte_expect"](condition={"quiescent": True}, timeout_ms=200, poll_ms=50)
+        assert out["ok"] is False and out["satisfied"] is False
+        assert out["elapsed_ms"] >= 200
+    finally:
+        fake.stop()
+
+
+def test_expect_clamps_poll_cadence(tmp_path):
+    fake = FakeCooperativeEndpoint(token="secret")
+    fake.state["quiescent"] = False
+    ep = fake.start()
+    try:
+        from daimon.pacte.discovery import Endpoint
+        now = [0.0]; seen = []
+        p = _build_timed(tmp_path, Endpoint(port=ep.port, token="secret", pid=1, app="delta", protocol_version="1.0"),
+                         clock=lambda: now[0], sleep=lambda ms: (seen.append(ms), now.__setitem__(0, now[0] + ms)))
+        rec = _Recorder(); p.register(rec)
+        rec.tools["pacte_describe"]()
+        rec.tools["pacte_expect"](condition={"quiescent": True}, timeout_ms=50, poll_ms=5)
+        assert all(s == 20 for s in seen)  # 5ms clamped up to floor 20ms
+    finally:
+        fake.stop()
+
+
+def test_expect_refused_without_session(tmp_path):
+    p = Pacte(_exclusions(), CooperativeSession(AppendOnlyLedger(tmp_path / "c.jsonl"), lambda: "ts"),
+              lambda c: None, discover_fn=lambda _d: None, cooperative_dir=tmp_path)
+    rec = _Recorder(); p.register(rec)
+    out = rec.tools["pacte_expect"](condition={"quiescent": True})
+    assert out["status"] == "refused"
+
+
 def test_capture_refused_without_session(tmp_path):
     p = Pacte(_exclusions(), CooperativeSession(AppendOnlyLedger(tmp_path / "c.jsonl"), lambda: "ts"),
               lambda c: None, discover_fn=lambda _d: None, cooperative_dir=tmp_path)

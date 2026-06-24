@@ -20,6 +20,7 @@ from ..motor.organ import MotorOrgan
 from ..motor.types import Declaration, Level, MotorAction, Target
 from .client import CooperativeClient
 from .discovery import discover
+from .expect import evaluate, field_roots
 from .session import CooperativeSession
 
 # NOTE: redaction covers these node-bearing keys only; extend this tuple if the probe protocol grows new node-shaped keys (else their text bypasses redaction).
@@ -31,7 +32,9 @@ class Pacte:
 
     def __init__(self, exclusions: ExclusionFilter, session: CooperativeSession,
                  motor_organ_factory: Callable[[CooperativeClient], MotorOrgan],
-                 discover_fn=discover, cooperative_dir: Path | None = None) -> None:
+                 discover_fn=discover, cooperative_dir: Path | None = None,
+                 clock_ms: Callable[[], float] | None = None,
+                 sleep_ms: Callable[[float], None] | None = None) -> None:
         self._exclusions = exclusions
         self._session = session
         self._motor_factory = motor_organ_factory
@@ -39,6 +42,9 @@ class Pacte:
         self._dir = cooperative_dir
         self._client: CooperativeClient | None = None
         self._organ: MotorOrgan | None = None
+        # Injectable time source so pacte_expect's poll loop is deterministic in tests.
+        self._clock_ms = clock_ms or (lambda: __import__("time").monotonic() * 1000.0)
+        self._sleep_ms = sleep_ms or (lambda ms: __import__("time").sleep(ms / 1000.0))
 
     def register(self, mcp) -> None:
         @mcp.tool(name="pacte_describe", description=(
@@ -62,11 +68,7 @@ class Pacte:
         def pacte_probe(fields: list[str] | None = None) -> dict:
             if self._client is None:
                 return {"status": "refused", "reason": "no cooperative session (call pacte_describe first)"}
-            payload = self._client.call("probe", {"fields": fields} if fields else {})
-            for key in _NODE_LISTS:
-                if isinstance(payload.get(key), list):
-                    payload[key] = self._exclusions.redact_nodes(payload[key])
-            return payload
+            return self._do_probe(fields)
 
         @mcp.tool(name="pacte_capture", description=(
             "Capture targeted SCENE pixels from the cooperating app and RETURN them as an "
@@ -85,6 +87,31 @@ class Pacte:
             return [TextContent(type="text", text=json.dumps(meta)),
                     MCPImage(data=png, format="png")]
 
+        @mcp.tool(name="pacte_expect", description=(
+            "Poll the cooperating app until a condition holds or timeout — kills temporal "
+            "flakiness (no blind sleeps; the app never blocks). condition DSL: a leaf "
+            "{field,op:eq|ne|gte|lte|contains|len_eq,value}, the shortcut {quiescent:true}, "
+            "or {all:[...]}/{any:[...]}; `field` may be dotted (e.g. "
+            "\"decorators.nested_overlay.visible\"). timeout_ms default 2000, poll_ms default "
+            "50 (clamped to [20,500]); only the referenced fields are probed. Returns "
+            "{ok,satisfied,elapsed_ms,final}. Refused outside an open cooperative session."))
+        def pacte_expect(condition: dict, timeout_ms: int = 2000, poll_ms: int = 50) -> dict:
+            if self._client is None:
+                return {"status": "refused", "reason": "no cooperative session (call pacte_describe first)"}
+            poll = max(20, min(500, poll_ms))
+            fields = sorted(field_roots(condition))
+            start = self._clock_ms()
+            final: dict = {}
+            while True:
+                final = self._do_probe(fields)
+                if evaluate(condition, final):
+                    return {"ok": True, "satisfied": True,
+                            "elapsed_ms": int(self._clock_ms() - start), "final": final}
+                if self._clock_ms() - start >= timeout_ms:
+                    return {"ok": False, "satisfied": False,
+                            "elapsed_ms": int(self._clock_ms() - start), "final": final}
+                self._sleep_ms(poll)
+
         @mcp.tool(name="pacte_act", description=(
             "Invoke an app verb (drag/resize/marquee/click/load_fixture/shortcut). Routed through "
             "Daimon's Hands ceiling + audit ledger; pass the verb's declared level. Refused outside "
@@ -98,3 +125,11 @@ class Pacte:
                 params={"args": args},
             )
             return self._organ.act(action)
+
+    def _do_probe(self, fields: list[str] | None) -> dict:
+        """Call the endpoint's probe, applying the legacy flat-key redaction (ADR-1)."""
+        payload = self._client.call("probe", {"fields": fields} if fields else {})
+        for key in _NODE_LISTS:
+            if isinstance(payload.get(key), list):
+                payload[key] = self._exclusions.redact_nodes(payload[key])
+        return payload
