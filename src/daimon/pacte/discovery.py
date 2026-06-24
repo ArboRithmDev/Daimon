@@ -3,12 +3,32 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from .protocol import PROTOCOL_VERSION
 
 _KEYS = ("port", "token", "pid", "app", "protocol_version")
+
+
+def _alive(pid: int) -> bool:
+    """Whether `pid` names a live process.
+
+    A stale discovery file from an unclean kill carries a dead pid; rejecting it
+    avoids connecting to a recycled port. `pid <= 0` carries no liveness info (e.g.
+    a test double) → treated as live. The probe is POSIX-only: on Windows
+    `os.kill(pid, 0)` is not a safe no-op, so liveness is skipped there.
+    """
+    if pid <= 0 or os.name != "posix":
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True  # PermissionError (owned by another user) or other → exists; stay permissive
+    return True
 
 
 @dataclass(frozen=True)
@@ -28,6 +48,8 @@ def _load(path: Path) -> Endpoint | None:
     except (OSError, ValueError):
         return None
     if not all(k in rec for k in _KEYS) or rec["protocol_version"] != PROTOCOL_VERSION:
+        return None
+    if not _alive(int(rec["pid"])):
         return None
     return Endpoint(port=int(rec["port"]), token=str(rec["token"]), pid=int(rec["pid"]),
                     app=str(rec["app"]), protocol_version=str(rec["protocol_version"]))
